@@ -37,5 +37,4 @@ public class Organization {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
-
 }
