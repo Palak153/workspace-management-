@@ -30,7 +30,33 @@ public class OrganizationService {
         }
         throw new RuntimeException("Organization code already exists");
     }
-    
+
+    public Organization updateOrganization(String organizationCode, Organization newOrganization){
+        Organization oldOrganization = findOrganizationByCode(organizationCode);
+        if (oldOrganization != null){
+             oldOrganization.setOrganizationName(
+                    newOrganization.getOrganizationName() != null && !newOrganization.getOrganizationName().isBlank() ?
+                            newOrganization.getOrganizationName() : oldOrganization.getOrganizationName());
+
+            oldOrganization.setEmail(
+                    newOrganization.getEmail() != null && !newOrganization.getEmail().isBlank() ?
+                            newOrganization.getEmail() : oldOrganization.getEmail());
+
+            oldOrganization.setPhone(
+                    newOrganization.getPhone() != null && !newOrganization.getPhone().isBlank() ?
+                            newOrganization.getPhone() : oldOrganization.getPhone());
+
+            oldOrganization.setAddress(
+                    newOrganization.getAddress() != null && !newOrganization.getAddress().isBlank() ?
+                            newOrganization.getAddress() : oldOrganization.getAddress());
+
+            oldOrganization.setUpdatedAt(LocalDateTime.now());
+
+            return organizationRepository.save(oldOrganization);
+        }
+        return null;
+    }
+
     public Organization findOrganizationByCode(String organizationCode){
         Optional<Organization> organization = organizationRepository.findByOrganizationCode(organizationCode);
         if(organization.isPresent()){

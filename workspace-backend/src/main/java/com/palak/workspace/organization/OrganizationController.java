@@ -41,4 +41,13 @@ public class OrganizationController {
         }
         return new ResponseEntity<>(organization, HttpStatus.NOT_FOUND);
     }
+
+    @PutMapping("/{orgCode}")
+    public ResponseEntity<?> updateOrganization(@PathVariable String orgCode, @RequestBody Organization newOrganization){
+        Organization organization = organizationService.updateOrganization(orgCode, newOrganization);
+        if(organization != null){
+            return new ResponseEntity<>(organization, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(newOrganization, HttpStatus.NOT_FOUND);
+    }
 }
