@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/organization")
 public class OrganizationController {
@@ -22,6 +24,12 @@ public class OrganizationController {
         } catch (Exception e){
             return new ResponseEntity<>(newOrganization, HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAllOrganization(){
+        List<Organization> allOrganization = organizationService.getAllOrganization();
+        return new ResponseEntity<>(allOrganization,HttpStatus.OK);
     }
 
     @GetMapping("/org-code/{orgCode}")
@@ -50,4 +58,14 @@ public class OrganizationController {
         }
         return new ResponseEntity<>(newOrganization, HttpStatus.NOT_FOUND);
     }
+
+    @DeleteMapping("/{orgCode}")
+    public ResponseEntity<?> deleteOrganization(@PathVariable String orgCode){
+        Boolean b = organizationService.deleteOrganization(orgCode);
+        if(b){
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
 }

@@ -1,8 +1,11 @@
 package com.palak.workspace.organization;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -71,6 +74,19 @@ public class OrganizationService {
             return organization.get();
         }
         return null;
+    }
+
+    public List<Organization> getAllOrganization(){
+        return organizationRepository.findAll();
+    }
+
+    public Boolean deleteOrganization(String organizationCode){
+        Organization organization = findOrganizationByCode(organizationCode);
+        if(organization != null){
+            organizationRepository.delete(organization);
+            return true;
+        }
+        return false;
     }
 
 }
