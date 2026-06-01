@@ -1,8 +1,11 @@
 package com.palak.workspace.user;
 
+import com.palak.workspace.organization.Organization;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/user")
@@ -39,6 +42,15 @@ public class UserController {
             return new ResponseEntity<>(user, HttpStatus.OK);
         }
         return new ResponseEntity<>(user, HttpStatus.NOT_FOUND);
+    }
+
+    @PutMapping("/{empId}")
+    public ResponseEntity<?> updateUser(@PathVariable String empId, @RequestBody User newUser){
+        User user = userService.updateUser(empId, newUser);
+        if(user != null){
+            return new ResponseEntity<>(user, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(newUser, HttpStatus.NOT_FOUND);
     }
 
 

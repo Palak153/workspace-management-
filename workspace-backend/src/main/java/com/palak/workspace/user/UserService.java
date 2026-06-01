@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -55,5 +56,26 @@ public class UserService {
         }else{
             return null;
         }
+    }
+
+    public User updateUser(String empId, User user){
+        User oldUser = findByEmployeeId(empId);
+        if (oldUser != null){
+
+           oldUser.setFirstName(
+                    user.getFirstName() != null && !user.getFirstName().isBlank() ?
+                            user.getFirstName() : oldUser.getFirstName());
+           oldUser.setLastName(
+                   user.getLastName() != null && !user.getLastName().isBlank() ?
+                           user.getLastName() : oldUser.getLastName());
+           oldUser.setEmail(
+                    user.getEmail() != null && !user.getEmail().isBlank() ?
+                            user.getEmail() : oldUser.getEmail());
+
+           oldUser.setUpdatedAt(LocalDateTime.now());
+
+           return userRepository.save(oldUser);
+        }
+        return null;
     }
 }
