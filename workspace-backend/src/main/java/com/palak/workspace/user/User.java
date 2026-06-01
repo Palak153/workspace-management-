@@ -20,9 +20,10 @@ public class User {
     @Indexed
     private String tenantId;
 
+    private String organizationCode;
+
     private String firstName;
     private String lastName;
-
 
     @Email(message = "enter valid email")
     @Indexed(unique = true)

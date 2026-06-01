@@ -1,6 +1,7 @@
 package com.palak.workspace.user;
 
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import com.palak.workspace.organization.Organization;
+import com.palak.workspace.organization.OrganizationRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -12,22 +13,27 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationRepository organizationRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder){
+    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, PasswordEncoder passwordEncoder){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.organizationRepository =organizationRepository;
     }
 
 
     public User createUser(User user){
         User userByEmail = findByEmail(user.getEmail());
         User userById = findByEmployeeId(user.getEmployeeId());
-
+        Organization organization =
+                organizationRepository.findByOrganizationCode(user.getOrganizationCode())
+                        .orElseThrow(() -> new RuntimeException("Organization not found"));
         if(userById != null || userByEmail != null){
             throw new RuntimeException("User already Exists");
         }else{
             user.setCreatedAt(LocalDateTime.now());
             user.setIsActive(true);
+            user.setTenantId(organization.getTenantId());
             user.setPassword(passwordEncoder.encode(user.getPassword()));
             return userRepository.save(user);
         }
