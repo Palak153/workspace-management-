@@ -44,13 +44,28 @@ public class UserController {
         return new ResponseEntity<>(user, HttpStatus.NOT_FOUND);
     }
 
-    @PutMapping("/{empId}")
+    @PutMapping("/employeeId/{empId}")
     public ResponseEntity<?> updateUser(@PathVariable String empId, @RequestBody User newUser){
         User user = userService.updateUser(empId, newUser);
         if(user != null){
             return new ResponseEntity<>(user, HttpStatus.OK);
         }
         return new ResponseEntity<>(newUser, HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping("/tenant/{tenantId}")
+    public ResponseEntity<?> allTenantUser(@PathVariable String tenantId){
+        List<User> users = userService.allTenantUser(tenantId);
+        return new ResponseEntity<>(users,HttpStatus.OK);
+    }
+
+    @DeleteMapping("/employeeId/{empId}")
+    public ResponseEntity<?> deleteUser(@PathVariable String empId){
+        Boolean b = userService.deleteUser(empId);
+        if(b){
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
 

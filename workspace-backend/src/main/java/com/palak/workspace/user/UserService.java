@@ -78,4 +78,17 @@ public class UserService {
         }
         return null;
     }
+
+    public List<User> allTenantUser(String tenantId){
+        return userRepository.findByTenantId(tenantId);
+    }
+
+    public Boolean deleteUser(String empId){
+        User user = findByEmployeeId(empId);
+        if(user != null){
+            userRepository.delete(user);
+            return true;
+        }
+        return false;
+    }
 }
