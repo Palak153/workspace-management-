@@ -1,7 +1,6 @@
 package com.palak.workspace.auth;
 
 import com.palak.workspace.organization.Organization;
-import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationService;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserService;
@@ -10,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,8 +34,8 @@ public class AuthController {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(),request.getPassword()));
 
-            String token = jwtService.generateToken(request.getEmail());
             User user = userService.findByEmail(request.getEmail());
+            String token = jwtService.generateToken(user);
             Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
             LoginResponseDTO response = new LoginResponseDTO();
             response.setToken(token);
@@ -52,5 +52,34 @@ public class AuthController {
             log.error("Exception occurred while createAuthenticationToken ", e);
             return new ResponseEntity<>("Incorrect username or password ", HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<?> getProfile(Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userService.findByEmail(email);
+
+        Organization organization =
+                organizationService.findOrganizationByCode(
+                        user.getOrganizationCode());
+
+        ProfileResponseDTO response =
+                new ProfileResponseDTO();
+
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setRole(user.getRole());
+        response.setTenantId(user.getTenantId());
+        response.setEmployeeId(user.getEmployeeId());
+        response.setDesignation(user.getDesignation());
+        response.setOrganizationCode(user.getOrganizationCode());
+        response.setOrganizationName(
+                organization.getOrganizationName());
+        response.setIsActive(user.getIsActive());
+
+        return ResponseEntity.ok(response);
     }
 }

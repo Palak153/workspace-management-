@@ -1,4 +1,5 @@
 package com.palak.workspace.auth;
+import com.palak.workspace.user.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -24,9 +25,11 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String email) {
+    public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, email);
+        claims.put("role", user.getRole().toString());
+        claims.put("tenantId", user.getTenantId());
+        return createToken(claims, user.getEmail());
     }
 
     private String createToken(Map<String, Object> claims, String email) {
@@ -46,17 +49,20 @@ public class JwtService {
         return claims.getSubject();
     }
 
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    public String extractRole(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("role", String.class);
+    }
+
+    public String extractTenantId(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("tenantId", String.class);
     }
 
     public Date extractExpiration(String token) {
         return extractAllClaims(token).getExpiration();
     }
+
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
@@ -65,6 +71,11 @@ public class JwtService {
         return !isTokenExpired(token);
     }
 
-
-
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
 }
