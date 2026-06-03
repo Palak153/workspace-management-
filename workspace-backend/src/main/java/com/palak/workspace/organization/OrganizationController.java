@@ -21,10 +21,10 @@ public class OrganizationController {
     @PreAuthorize(
             "hasRole('SUPER_ADMIN')"
     )
-    public ResponseEntity<Organization> createOrganization(@RequestBody Organization newOrganization){
+    public ResponseEntity<?> createOrganization(@RequestBody Organization newOrganization){
         try{
             Organization organization = organizationService.saveOrganization(newOrganization);
-            return new ResponseEntity<>(organization, HttpStatus.CREATED);
+            return new ResponseEntity<>(organizationService.convertToDTO(organization), HttpStatus.CREATED);
         } catch (Exception e){
             return new ResponseEntity<>(newOrganization, HttpStatus.BAD_REQUEST);
         }
@@ -36,7 +36,7 @@ public class OrganizationController {
     )
     public ResponseEntity<?> getAllOrganization(){
         List<Organization> allOrganization = organizationService.getAllOrganization();
-        return new ResponseEntity<>(allOrganization,HttpStatus.OK);
+        return new ResponseEntity<>(organizationService.convertToDTOList(allOrganization),HttpStatus.OK);
     }
 
     @GetMapping("/org-code/{orgCode}")
@@ -46,7 +46,7 @@ public class OrganizationController {
     public ResponseEntity<?> getByOrganizationCode(@PathVariable String orgCode){
         Organization organization = organizationService.findOrganizationByCode(orgCode);
         if(organization != null){
-            return new ResponseEntity<>(organization, HttpStatus.OK);
+            return new ResponseEntity<>(organizationService.convertToDTO(organization), HttpStatus.OK);
         }
         return new ResponseEntity<>(organization, HttpStatus.NOT_FOUND);
     }
@@ -58,7 +58,7 @@ public class OrganizationController {
     public ResponseEntity<?> getByTenantID(@PathVariable String tenantId){
         Organization organization = organizationService.findOrganizationByTenantID(tenantId);
         if(organization != null){
-            return new ResponseEntity<>(organization, HttpStatus.OK);
+            return new ResponseEntity<>(organizationService.convertToDTO(organization), HttpStatus.OK);
         }
         return new ResponseEntity<>(organization, HttpStatus.NOT_FOUND);
     }
@@ -70,7 +70,7 @@ public class OrganizationController {
     public ResponseEntity<?> updateOrganization(@PathVariable String orgCode, @RequestBody Organization newOrganization){
         Organization organization = organizationService.updateOrganization(orgCode, newOrganization);
         if(organization != null){
-            return new ResponseEntity<>(organization, HttpStatus.OK);
+            return new ResponseEntity<>(organizationService.convertToDTO(organization), HttpStatus.OK);
         }
         return new ResponseEntity<>(newOrganization, HttpStatus.NOT_FOUND);
     }

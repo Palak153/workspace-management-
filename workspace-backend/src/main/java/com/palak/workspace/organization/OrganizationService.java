@@ -1,10 +1,13 @@
 package com.palak.workspace.organization;
 
+import com.palak.workspace.user.User;
+import com.palak.workspace.user.UserResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,5 +91,27 @@ public class OrganizationService {
         }
         return false;
     }
+
+    public OrganizationResponseDTO convertToDTO(Organization organization) {
+        OrganizationResponseDTO response = new OrganizationResponseDTO();
+        response.setTenantId(organization.getTenantId());
+        response.setOrganizationName(organization.getOrganizationName());
+        response.setOrganizationCode(organization.getOrganizationCode());
+        response.setEmail(organization.getEmail());
+        response.setPhone(organization.getPhone());
+        response.setAddress(organization.getAddress());
+        response.setStatus(organization.getStatus());
+        return response;
+    }
+
+    public List<OrganizationResponseDTO> convertToDTOList(List<Organization> organizations) {
+        List<OrganizationResponseDTO> responseList = new ArrayList<>();
+        for (Organization org : organizations) {
+            responseList.add(convertToDTO(org));
+        }
+        return responseList;
+    }
+
+
 
 }

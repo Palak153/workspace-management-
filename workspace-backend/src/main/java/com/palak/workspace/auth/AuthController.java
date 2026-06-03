@@ -12,6 +12,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+
 @RestController
 @RequestMapping("/auth")
 @Slf4j
@@ -31,10 +33,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO request) {
         try{
+            User user = userService.findByEmail(request.getEmail());
+            if (!user.getIsActive()){
+                return new ResponseEntity<>("Inactive user", HttpStatus.BAD_REQUEST);
+            }
+
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(),request.getPassword()));
 
-            User user = userService.findByEmail(request.getEmail());
+            user.setLastLogin(LocalDateTime.now());
+            userService.saveUser(user);
             String token = jwtService.generateToken(user);
             Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
             LoginResponseDTO response = new LoginResponseDTO();

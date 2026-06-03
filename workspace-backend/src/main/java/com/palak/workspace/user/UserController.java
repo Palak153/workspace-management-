@@ -24,7 +24,10 @@ public class UserController {
     public ResponseEntity<?> createUser(@RequestBody User user){
         try{
             User newUser = userService.createUser(user);
-            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
+            return new ResponseEntity<>(
+                    userService.convertToDTO(newUser),
+                    HttpStatus.CREATED
+            );
         } catch (Exception e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
@@ -37,7 +40,10 @@ public class UserController {
     public ResponseEntity<?> findUserByEmail(@PathVariable String email){
         User user = userService.findByEmail(email);
         if(user != null){
-            return new ResponseEntity<>(user, HttpStatus.OK);
+            return new ResponseEntity<>(
+                    userService.convertToDTO(user),
+                    HttpStatus.OK
+            );
         }
             return new ResponseEntity<>(user, HttpStatus.NOT_FOUND);
     }
@@ -46,19 +52,26 @@ public class UserController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> findUserByEmployeeId(@PathVariable String empId){
+    public ResponseEntity<?> findUserByEmployeeId(@PathVariable String empId) {
+
         User user = userService.findByEmployeeId(empId);
-        if(user != null){
-            return new ResponseEntity<>(user, HttpStatus.OK);
+        if (user != null) {
+            return new ResponseEntity<>(
+                    userService.convertToDTO(user),
+                    HttpStatus.OK
+            );
         }
-        return new ResponseEntity<>(user, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
     @PutMapping("/employeeId/{empId}")
     public ResponseEntity<?> updateUser(@PathVariable String empId, @RequestBody User newUser){
         User user = userService.updateUser(empId, newUser);
         if(user != null){
-            return new ResponseEntity<>(user, HttpStatus.OK);
+            return new ResponseEntity<>(
+                    userService.convertToDTO(user),
+                    HttpStatus.OK
+            );
         }
         return new ResponseEntity<>(newUser, HttpStatus.NOT_FOUND);
     }
@@ -69,7 +82,10 @@ public class UserController {
     )
     public ResponseEntity<?> allTenantUser(@PathVariable String tenantId){
         List<User> users = userService.allTenantUser(tenantId);
-        return new ResponseEntity<>(users,HttpStatus.OK);
+        return new ResponseEntity<>(
+                userService.convertToDTOList(users),
+                HttpStatus.OK
+        );
     }
 
     @DeleteMapping("/employeeId/{empId}")
@@ -83,7 +99,6 @@ public class UserController {
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
-
 
 }
 

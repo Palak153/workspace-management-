@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,6 +80,10 @@ public class UserService {
         return null;
     }
 
+    public void saveUser(User user){
+        userRepository.save(user);
+    }
+
     public List<User> allTenantUser(String tenantId){
         return userRepository.findByTenantId(tenantId);
     }
@@ -90,5 +95,26 @@ public class UserService {
             return true;
         }
         return false;
+    }
+
+    public UserResponseDTO convertToDTO(User user) {
+        UserResponseDTO response = new UserResponseDTO();
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setEmail(user.getEmail());
+        response.setEmployeeId(user.getEmployeeId());
+        response.setDesignation(user.getDesignation());
+        response.setRole(user.getRole());
+        response.setOrganizationCode(user.getOrganizationCode());
+        response.setIsActive(user.getIsActive());
+        return response;
+    }
+
+    public List<UserResponseDTO> convertToDTOList(List<User> users) {
+        List<UserResponseDTO> responseList = new ArrayList<>();
+        for (User user : users) {
+            responseList.add(convertToDTO(user));
+        }
+        return responseList;
     }
 }
