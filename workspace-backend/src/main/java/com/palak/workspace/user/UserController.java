@@ -3,6 +3,7 @@ package com.palak.workspace.user;
 import com.palak.workspace.organization.Organization;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,9 @@ public class UserController {
     }
 
     @PostMapping("/create-user")
+    @PreAuthorize(
+            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
+    )
     public ResponseEntity<?> createUser(@RequestBody User user){
         try{
             User newUser = userService.createUser(user);
@@ -27,6 +31,9 @@ public class UserController {
     }
 
     @GetMapping("/email/{email}")
+    @PreAuthorize(
+            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+    )
     public ResponseEntity<?> findUserByEmail(@PathVariable String email){
         User user = userService.findByEmail(email);
         if(user != null){
@@ -36,6 +43,9 @@ public class UserController {
     }
 
     @GetMapping("/employeeId/{empId}")
+    @PreAuthorize(
+            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+    )
     public ResponseEntity<?> findUserByEmployeeId(@PathVariable String empId){
         User user = userService.findByEmployeeId(empId);
         if(user != null){
@@ -54,12 +64,18 @@ public class UserController {
     }
 
     @GetMapping("/tenant/{tenantId}")
+    @PreAuthorize(
+            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+    )
     public ResponseEntity<?> allTenantUser(@PathVariable String tenantId){
         List<User> users = userService.allTenantUser(tenantId);
         return new ResponseEntity<>(users,HttpStatus.OK);
     }
 
     @DeleteMapping("/employeeId/{empId}")
+    @PreAuthorize(
+            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
+    )
     public ResponseEntity<?> deleteUser(@PathVariable String empId){
         Boolean b = userService.deleteUser(empId);
         if(b){
