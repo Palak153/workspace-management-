@@ -1,16 +1,11 @@
 package com.palak.workspace.organization;
 
 import com.palak.workspace.security.SecurityUtil;
-import com.palak.workspace.user.User;
-import com.palak.workspace.user.UserResponseDTO;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -25,72 +20,93 @@ public class OrganizationService {
         this.securityUtil = securityUtil;
     }
 
-    public Organization saveOrganization (Organization organization){
-        Organization organizationByCode = findOrganizationByCode(organization.getOrganizationCode());
-        if (organizationByCode == null){
-            organization.setCreatedAt(LocalDateTime.now());
-            organization.setStatus(OrganizationStatus.ACTIVE);
-            String tenantId = "ORG_" + UUID.randomUUID()
-                    .toString()
-                    .substring(0, 6)
-                    .toUpperCase();
-            organization.setTenantId(tenantId);
-            return organizationRepository.save(organization);
+    public OrganizationResponseDTO saveOrganization(Organization organization) {
+
+        if (organizationRepository.findByOrganizationCode(organization.getOrganizationCode()).isPresent()) {
+            throw new RuntimeException("Organization code already exists");
         }
-        throw new RuntimeException("Organization code already exists");
+        organization.setCreatedAt(LocalDateTime.now());
+        organization.setStatus(OrganizationStatus.ACTIVE);
+        String tenantId = "ORG_" + UUID.randomUUID()
+                .toString()
+                .substring(0, 6)
+                .toUpperCase();
+        organization.setTenantId(tenantId);
+        Organization savedOrganization = organizationRepository.save(organization);
+        return convertToDTO(savedOrganization);
     }
 
-    public Organization updateOrganization(String organizationCode, Organization newOrganization , boolean isSuperAdmin){
+    public OrganizationResponseDTO updateOrganization(String organizationCode, Organization newOrganization){
+
         Organization oldOrganization = findOrganizationByCode(organizationCode);
-        if (oldOrganization != null){
 
-            if(isSuperAdmin && newOrganization.getStatus() != null){
-                oldOrganization.setStatus(newOrganization.getStatus());
-            }
-
-            oldOrganization.setOrganizationName(
-                    newOrganization.getOrganizationName() != null && !newOrganization.getOrganizationName().isBlank() ?
-                            newOrganization.getOrganizationName() : oldOrganization.getOrganizationName());
-
-            oldOrganization.setEmail(
-                    newOrganization.getEmail() != null && !newOrganization.getEmail().isBlank() ?
-                            newOrganization.getEmail() : oldOrganization.getEmail());
-
-            oldOrganization.setPhone(
-                    newOrganization.getPhone() != null && !newOrganization.getPhone().isBlank() ?
-                            newOrganization.getPhone() : oldOrganization.getPhone());
-
-            oldOrganization.setAddress(
-                    newOrganization.getAddress() != null && !newOrganization.getAddress().isBlank() ?
-                            newOrganization.getAddress() : oldOrganization.getAddress());
-
-            oldOrganization.setUpdatedAt(LocalDateTime.now());
-
-            return organizationRepository.save(oldOrganization);
+        if(!securityUtil.hasTenantAccess(oldOrganization.getTenantId())){
+            throw new RuntimeException("Access denied");
         }
-        return null;
+
+        if(!securityUtil.isSuperAdmin() && newOrganization.getStatus() != null){
+            throw new RuntimeException("Only SUPER_ADMIN can change organization status");
+        }
+
+        if(securityUtil.isSuperAdmin() && newOrganization.getStatus() != null){
+            oldOrganization.setStatus(newOrganization.getStatus());
+        }
+
+        oldOrganization.setOrganizationName(
+                newOrganization.getOrganizationName() != null
+                        && !newOrganization.getOrganizationName().isBlank()
+                        ? newOrganization.getOrganizationName()
+                        : oldOrganization.getOrganizationName());
+
+        oldOrganization.setEmail(
+                newOrganization.getEmail() != null
+                        && !newOrganization.getEmail().isBlank()
+                        ? newOrganization.getEmail()
+                        : oldOrganization.getEmail());
+
+        oldOrganization.setPhone(
+                newOrganization.getPhone() != null
+                        && !newOrganization.getPhone().isBlank()
+                        ? newOrganization.getPhone()
+                        : oldOrganization.getPhone());
+
+        oldOrganization.setAddress(
+                newOrganization.getAddress() != null
+                        && !newOrganization.getAddress().isBlank()
+                        ? newOrganization.getAddress()
+                        : oldOrganization.getAddress());
+
+        oldOrganization.setUpdatedAt(LocalDateTime.now());
+        Organization updatedOrganization = organizationRepository.save(oldOrganization);
+        return convertToDTO(updatedOrganization);
     }
 
     public Organization findOrganizationByCode(String organizationCode){
-        Optional<Organization> organization = organizationRepository.findByOrganizationCode(organizationCode);
-        if(organization.isPresent()){
-            return organization.get();
+        return organizationRepository.findByOrganizationCode(organizationCode)
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+    }
+
+    public OrganizationResponseDTO getOrganizationByCode(String orgCode){
+        Organization organization = findOrganizationByCode(orgCode);
+        if(!securityUtil.hasTenantAccess(organization.getTenantId())){
+            throw new RuntimeException("Access denied");
         }
-        return null;
+        return convertToDTO(organization);
     }
 
     public Organization findOrganizationByTenantID(String tenantId){
-        Optional<Organization> organization = organizationRepository.findByTenantId(tenantId);
-        if(organization.isPresent()){
-            return organization.get();
-        }
-        return null;
+        return organizationRepository.findByTenantId(tenantId)
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+    }
+    public OrganizationResponseDTO getMyOrganization() {
+        String tenantId = securityUtil.getCurrentTenantId();
+        Organization organization = findOrganizationByTenantID(tenantId);
+        return convertToDTO(organization);
     }
 
-    public List<Organization> getAllOrganization(){
-        return organizationRepository.findAll();
+    public List<OrganizationResponseDTO> getAllOrganization(){
+        return convertToDTOList(organizationRepository.findAll());
     }
-
 
     public OrganizationResponseDTO convertToDTO(Organization organization) {
         OrganizationResponseDTO response = new OrganizationResponseDTO();

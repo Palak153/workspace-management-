@@ -36,4 +36,14 @@ public class SecurityUtil {
     public boolean isSuperAdmin(){
         return getCurrentUserRole() == UserRole.SUPER_ADMIN;
     }
+
+    public boolean hasTenantAccess(String tenantId){
+        return isSuperAdmin() || tenantId.equals(getCurrentTenantId());
+    }
+
+    public void validateTenantAccess(String tenantId){
+        if(!hasTenantAccess(tenantId)){
+            throw new RuntimeException("Access denied");
+        }
+    }
 }
