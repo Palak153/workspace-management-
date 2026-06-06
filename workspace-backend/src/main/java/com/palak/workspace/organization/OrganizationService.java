@@ -1,5 +1,6 @@
 package com.palak.workspace.organization;
 
+import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserResponseDTO;
 import org.springframework.http.HttpStatus;
@@ -17,9 +18,11 @@ public class OrganizationService {
 
 
     private final OrganizationRepository organizationRepository;
+    private final SecurityUtil securityUtil;
 
-    public OrganizationService(OrganizationRepository organizationRepository){
+    public OrganizationService(OrganizationRepository organizationRepository, SecurityUtil securityUtil){
         this.organizationRepository = organizationRepository;
+        this.securityUtil = securityUtil;
     }
 
     public Organization saveOrganization (Organization organization){
@@ -37,10 +40,15 @@ public class OrganizationService {
         throw new RuntimeException("Organization code already exists");
     }
 
-    public Organization updateOrganization(String organizationCode, Organization newOrganization){
+    public Organization updateOrganization(String organizationCode, Organization newOrganization , boolean isSuperAdmin){
         Organization oldOrganization = findOrganizationByCode(organizationCode);
         if (oldOrganization != null){
-             oldOrganization.setOrganizationName(
+
+            if(isSuperAdmin && newOrganization.getStatus() != null){
+                oldOrganization.setStatus(newOrganization.getStatus());
+            }
+
+            oldOrganization.setOrganizationName(
                     newOrganization.getOrganizationName() != null && !newOrganization.getOrganizationName().isBlank() ?
                             newOrganization.getOrganizationName() : oldOrganization.getOrganizationName());
 
@@ -83,14 +91,6 @@ public class OrganizationService {
         return organizationRepository.findAll();
     }
 
-    public Boolean deleteOrganization(String organizationCode){
-        Organization organization = findOrganizationByCode(organizationCode);
-        if(organization != null){
-            organizationRepository.delete(organization);
-            return true;
-        }
-        return false;
-    }
 
     public OrganizationResponseDTO convertToDTO(Organization organization) {
         OrganizationResponseDTO response = new OrganizationResponseDTO();

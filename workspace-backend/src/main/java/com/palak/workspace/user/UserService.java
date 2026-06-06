@@ -2,6 +2,8 @@ package com.palak.workspace.user;
 
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
+import com.palak.workspace.organization.OrganizationStatus;
+import com.palak.workspace.security.SecurityUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -23,22 +25,27 @@ public class UserService {
         this.organizationRepository =organizationRepository;
     }
 
-
     public User createUser(User user){
+
         User userByEmail = findByEmail(user.getEmail());
         User userById = findByEmployeeId(user.getEmployeeId());
-        Organization organization =
-                organizationRepository.findByOrganizationCode(user.getOrganizationCode())
-                        .orElseThrow(() -> new RuntimeException("Organization not found"));
+
         if(userById != null || userByEmail != null){
-            throw new RuntimeException("User already Exists");
-        }else{
-            user.setCreatedAt(LocalDateTime.now());
-            user.setIsActive(true);
-            user.setTenantId(organization.getTenantId());
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-            return userRepository.save(user);
+            throw new RuntimeException("User already exists");
         }
+
+        Organization organization = organizationRepository.findByOrganizationCode(user.getOrganizationCode())
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+
+        if(organization.getStatus() == OrganizationStatus.INACTIVE){
+            throw new RuntimeException("Cannot create user in inactive organization");
+        }
+
+        user.setTenantId(organization.getTenantId());
+        user.setCreatedAt(LocalDateTime.now());
+        user.setIsActive(true);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userRepository.save(user);
     }
 
     public User findByEmail(String email){
@@ -59,7 +66,7 @@ public class UserService {
         }
     }
 
-    public User updateUser(String empId, User user){
+    public User updateUser(String empId, User user, boolean canUpdateActiveStatus){
         User oldUser = findByEmployeeId(empId);
         if (oldUser != null){
 
@@ -72,6 +79,18 @@ public class UserService {
            oldUser.setEmail(
                     user.getEmail() != null && !user.getEmail().isBlank() ?
                             user.getEmail() : oldUser.getEmail());
+
+           oldUser.setDesignation(
+                   user.getDesignation() != null && !user.getDesignation().isBlank() ?
+                           user.getDesignation() : oldUser.getDesignation());
+
+           if(user.getRole() != null){
+                oldUser.setRole(user.getRole());
+           }
+
+           if(canUpdateActiveStatus && user.getIsActive() != null){
+                oldUser.setIsActive(user.getIsActive());
+           }
 
            oldUser.setUpdatedAt(LocalDateTime.now());
 
@@ -88,13 +107,28 @@ public class UserService {
         return userRepository.findByTenantId(tenantId);
     }
 
-    public Boolean deleteUser(String empId){
+    public User deactivateUser(String empId){
+
         User user = findByEmployeeId(empId);
+
         if(user != null){
-            userRepository.delete(user);
-            return true;
+            user.setIsActive(false);
+            user.setUpdatedAt(LocalDateTime.now());
+            return userRepository.save(user);
         }
-        return false;
+        return null;
+    }
+
+    public User activateUser(String empId){
+
+        User user = findByEmployeeId(empId);
+
+        if(user != null){
+            user.setIsActive(true);
+            user.setUpdatedAt(LocalDateTime.now());
+            return userRepository.save(user);
+        }
+        return null;
     }
 
     public UserResponseDTO convertToDTO(User user) {

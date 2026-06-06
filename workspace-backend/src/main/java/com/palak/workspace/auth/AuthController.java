@@ -2,6 +2,7 @@ package com.palak.workspace.auth;
 
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationService;
+import com.palak.workspace.organization.OrganizationStatus;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -34,8 +35,19 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO request) {
         try{
             User user = userService.findByEmail(request.getEmail());
+
+            if(user == null){
+                return new ResponseEntity<>("Incorrect username or password", HttpStatus.BAD_REQUEST);
+            }
+
             if (!user.getIsActive()){
-                return new ResponseEntity<>("Inactive user", HttpStatus.BAD_REQUEST);
+                return new ResponseEntity<>("Inactive user", HttpStatus.FORBIDDEN);
+            }
+
+            Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
+
+            if(organization.getStatus() == OrganizationStatus.INACTIVE){
+                return new ResponseEntity<>("Organization is inactive",HttpStatus.FORBIDDEN);
             }
 
             authenticationManager.authenticate(
@@ -44,7 +56,6 @@ public class AuthController {
             user.setLastLogin(LocalDateTime.now());
             userService.saveUser(user);
             String token = jwtService.generateToken(user);
-            Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
             LoginResponseDTO response = new LoginResponseDTO();
             response.setToken(token);
             response.setEmail(user.getEmail());
