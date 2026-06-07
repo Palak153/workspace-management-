@@ -1,10 +1,10 @@
 package com.palak.workspace.task;
 
-import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectRepository;
 import com.palak.workspace.project.ProjectStatus;
+import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRepository;
 import com.palak.workspace.user.UserRole;
@@ -21,14 +21,14 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
-    private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final SecurityUtil securityUtil;
 
-    public TaskService(TaskRepository taskRepository, ProjectRepository projectRepository, OrganizationRepository organizationRepository, UserRepository userRepository) {
+    public TaskService(TaskRepository taskRepository, ProjectRepository projectRepository, UserRepository userRepository, SecurityUtil securityUtil) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
-        this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
+        this.securityUtil = securityUtil;
     }
 
     public TaskResponseDTO convertToDTO(Task task){
@@ -55,30 +55,34 @@ public class TaskService {
         return responseList;
     }
 
-    public Task createTask(Task task) {
-
-        // Validate project
-        Project project = projectRepository.findByProjectCode(task.getProjectCode()).orElse(null);
-        if (project == null) {
-            throw new RuntimeException("Invalid project code");
+    private List<Task> filterTasksForCurrentUser(List<Task> tasks){
+        if(securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE){
+            tasks = tasks.stream().filter(task ->
+                    task.getAssignedToEmployeeId()
+                            .equals(securityUtil.getCurrentEmployeeId())).toList();
         }
-        if(project.getStatus() == ProjectStatus.COMPLETED){
-            throw new RuntimeException("Cannot create task in completed project");
+        return tasks;
+    }
+
+    private Project validateProject(String projectCode, String tenantId){
+        Project project = projectRepository.findByProjectCode(projectCode)
+                .orElseThrow(() -> new RuntimeException("Invalid project code"));
+
+        if(project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED){
+            throw new RuntimeException("Cannot create task in completed or cancelled project");
         }
 
         // Validate tenant
-        if (!project.getTenantId().equals(task.getTenantId())) {
+        if (!project.getTenantId().equals(tenantId)) {
             throw new RuntimeException("Project does not belong to tenant");
         }
+        return project;
+    }
 
-        // Validate assignee
-        User assignee = userRepository.findByEmployeeId(task.getAssignedToEmployeeId()).orElse(null);
+    private void validateTaskAssignee(String employeeId, String tenantId, Project project){
+        User assignee = userRepository.findByEmployeeId(employeeId).orElseThrow(() -> new RuntimeException("Assigned user not found"));
 
-        if (assignee == null) {
-            throw new RuntimeException("Assigned user not found");
-        }
-
-        if (!assignee.getTenantId().equals(task.getTenantId())) {
+        if (!assignee.getTenantId().equals(tenantId)) {
             throw new RuntimeException("Assigned user does not belong to this organization");
         }
 
@@ -87,18 +91,15 @@ public class TaskService {
         }
 
         // Assignee must belong to project
-        if (!project.getMemberIds().contains(task.getAssignedToEmployeeId())) {
+        if (!project.getMemberIds().contains(employeeId)) {
             throw new RuntimeException("Assigned user is not a member of the project");
         }
+    }
 
-        // Validate creator
-        User creator = userRepository.findByEmployeeId(task.getCreatedByEmployeeId()).orElse(null);
+    private void validateTaskCreator(String creatorId, String tenantId, Project project){
+        User creator = userRepository.findByEmployeeId(creatorId).orElseThrow(() -> new RuntimeException("Task creator not found"));
 
-        if (creator == null) {
-            throw new RuntimeException("Task creator not found");
-        }
-
-        if (!creator.getTenantId().equals(task.getTenantId())) {
+        if (!creator.getTenantId().equals(tenantId)) {
             throw new RuntimeException("Task creator does not belong to this organization");
         }
 
@@ -110,14 +111,29 @@ public class TaskService {
             throw new RuntimeException("Employee cannot create task");
         }
 
-        if(!project.getMemberIds().contains(creator.getEmployeeId())) {
-            throw new RuntimeException("Task creator is not a project member");
+        if(creator.getRole() == UserRole.MANAGER && !project.getProjectManagerEmployeeId().equals(creatorId)){
+            throw new RuntimeException("Manager can only create tasks in projects they manage");
         }
+    }
+
+    public TaskResponseDTO createTask(Task task) {
+
+        securityUtil.validateActiveUser();
+        String tenantId = securityUtil.getCurrentTenantId();
+        String creatorId = securityUtil.getCurrentEmployeeId();
+
+        // Validate project
+        Project project = validateProject(task.getProjectCode(),tenantId);
+
+        // Validate assignee
+        validateTaskAssignee(task.getAssignedToEmployeeId(), tenantId, project);
+
+        // Validate creator
+        validateTaskCreator(creatorId, tenantId, project);
 
         if(task.getDueDate() != null && task.getDueDate().isBefore(LocalDate.now())) {
             throw new RuntimeException("Due date cannot be in the past");
         }
-
 
         String taskCode = "TASK_" + UUID.randomUUID()
                         .toString()
@@ -125,44 +141,111 @@ public class TaskService {
                         .toUpperCase();
 
         // System fields
+        task.setTenantId(tenantId);
+        task.setCreatedByEmployeeId(creatorId);
         task.setTaskCode(taskCode);
         task.setStatus(TaskStatus.TODO);
         task.setCreatedAt(LocalDateTime.now());
         Task savedTask = taskRepository.save(task);
         updateProjectProgress(savedTask.getProjectCode());
-        return savedTask;
+        return convertToDTO(savedTask);
     }
 
     public Task findByTaskCode(String taskCode){
-        return taskRepository.findByTaskCode(taskCode).orElse(null);
+        return taskRepository.findByTaskCode(taskCode).orElseThrow(() -> new RuntimeException("Task not found"));
+    }
+    public TaskResponseDTO getTaskByCode(String taskCode){
+        securityUtil.validateActiveUser();
+        Task task = findByTaskCode(taskCode);
+        securityUtil.validateTenantAccess(task.getTenantId());
+
+        if(securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE){
+            String employeeId = securityUtil.getCurrentEmployeeId();
+            if(!task.getAssignedToEmployeeId().equals(employeeId)){
+                throw new RuntimeException("Employees can only view their own tasks");
+            }
+        }
+        return convertToDTO(task);
     }
 
-    public List<Task> findByProjectCode(String projectCode){
-        return taskRepository.findByProjectCode(projectCode);
+    public List<TaskResponseDTO> getTasksByProject(String projectCode){
+        securityUtil.validateActiveUser();
+        Project project = projectRepository.findByProjectCode(projectCode)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        securityUtil.validateTenantAccess(project.getTenantId());
+
+        List<Task> tasks = taskRepository.findByProjectCode(projectCode);
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByTenantId(String tenantId){
-        return taskRepository.findByTenantId(tenantId);
+    public List<TaskResponseDTO> getMyOrganizationTasks(){
+        securityUtil.validateActiveUser();
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<Task> tasks = taskRepository.findByTenantId(tenantId);
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByAssignedEmployee(String employeeId){
-        return taskRepository.findByAssignedToEmployeeId(employeeId);
+    public List<TaskResponseDTO> getTasksByAssignee(String employeeId){
+        securityUtil.validateActiveUser();
+        User assignee = userRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        securityUtil.validateTenantAccess(assignee.getTenantId());
+        List<Task> tasks = taskRepository.findByAssignedToEmployeeId(employeeId);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByStatus(TaskStatus status){
-        return taskRepository.findByStatus(status);
+    public List<TaskResponseDTO> getTasksByStatus(TaskStatus status){
+        securityUtil.validateActiveUser();
+        String tenantId = securityUtil.getCurrentTenantId();
+
+        List<Task> tasks = taskRepository.findByTenantId(tenantId)
+                .stream().filter(task -> task.getStatus() == status).toList();
+
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByPriority(TaskPriority priority){
-        return taskRepository.findByPriority(priority);
+    public List<TaskResponseDTO> getTasksByPriority(TaskPriority priority){
+
+        securityUtil.validateActiveUser();
+
+        String tenantId = securityUtil.getCurrentTenantId();
+
+        List<Task> tasks = taskRepository.findByTenantId(tenantId).stream()
+                .filter(task -> task.getPriority() == priority).toList();
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByDueDate(LocalDate dueDate){
-        return taskRepository.findByDueDate(dueDate);
+    public List<TaskResponseDTO> getTasksByDueDate(LocalDate dueDate){
+
+        securityUtil.validateActiveUser();
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<Task> tasks = taskRepository
+                .findByTenantId(tenantId)
+                .stream()
+                .filter(task ->
+                        dueDate.equals(task.getDueDate()))
+                .toList();
+
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
-    public List<Task> findByProjectCodeAndStatus(String projectCode, TaskStatus status){
-        return taskRepository.findByProjectCodeAndStatus(projectCode, status);
+    public List<TaskResponseDTO> getTasksByProjectAndStatus(String projectCode, TaskStatus status){
+
+        securityUtil.validateActiveUser();
+        Project project = projectRepository
+                .findByProjectCode(projectCode)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        securityUtil.validateTenantAccess(project.getTenantId());
+        List<Task> tasks = taskRepository.findByProjectCodeAndStatus(projectCode, status);
+        tasks = filterTasksForCurrentUser(tasks);
+        return convertToDTOList(tasks);
     }
 
     private void updateProjectProgress(String projectCode){
@@ -181,12 +264,16 @@ public class TaskService {
         }
     }
 
-    public Task updateTask(String taskCode, Task newTask){
-
+    public TaskResponseDTO updateTask(String taskCode, Task newTask){
+        securityUtil.validateActiveUser();
         Task oldTask = findByTaskCode(taskCode);
-        if(oldTask == null){
-            return null;
+        securityUtil.validateTenantAccess(oldTask.getTenantId());
+
+        if(oldTask.getStatus() == TaskStatus.DONE){
+            throw new RuntimeException("Completed task cannot be modified");
         }
+
+        Project project = validateProject(oldTask.getProjectCode(), oldTask.getTenantId());
 
         oldTask.setTitle(
                 newTask.getTitle() != null && !newTask.getTitle().isBlank()
@@ -199,35 +286,19 @@ public class TaskService {
         oldTask.setPriority(
                 newTask.getPriority() != null ? newTask.getPriority() : oldTask.getPriority());
 
+        if(newTask.getDueDate() != null && newTask.getDueDate().isBefore(LocalDate.now())) {
+            throw new RuntimeException("Due date cannot be in the past");
+        }
         oldTask.setDueDate(
                 newTask.getDueDate() != null ? newTask.getDueDate() : oldTask.getDueDate());
 
         if(newTask.getAssignedToEmployeeId() != null){
-
-            User assignee = userRepository.findByEmployeeId(newTask.getAssignedToEmployeeId()).orElse(null);
-
-            if(assignee == null){
-                throw new RuntimeException("Assigned user not found");
-            }
-
-            if(!assignee.getTenantId().equals(oldTask.getTenantId())){
-                throw new RuntimeException("Assigned user does not belong to this organization");
-            }
-
-            Project project = projectRepository.findByProjectCode(oldTask.getProjectCode()).orElse(null);
-
-            if(project != null && !project.getMemberIds().contains(newTask.getAssignedToEmployeeId())) {
-                throw new RuntimeException("Assigned user is not a project member");
-            }
+            validateTaskAssignee(newTask.getAssignedToEmployeeId(), oldTask.getTenantId(), project);
             oldTask.setAssignedToEmployeeId(newTask.getAssignedToEmployeeId());
         }
 
         // Status handling
         if(newTask.getStatus() != null ){
-
-            if(oldTask.getStatus() == TaskStatus.DONE && newTask.getStatus() != TaskStatus.DONE){
-                throw new RuntimeException("Completed task cannot be moved back");
-            }
 
             if(newTask.getStatus() == TaskStatus.IN_PROGRESS && oldTask.getStartedAt() == null){
                 oldTask.setStartedAt(LocalDateTime.now());
@@ -236,24 +307,26 @@ public class TaskService {
             if(newTask.getStatus() == TaskStatus.DONE && oldTask.getCompletedAt() == null){
                 oldTask.setCompletedAt(LocalDateTime.now());
             }
+
             oldTask.setStatus(newTask.getStatus());
         }
 
         oldTask.setUpdatedAt(LocalDateTime.now());
         Task savedTask = taskRepository.save(oldTask);
         updateProjectProgress(savedTask.getProjectCode());
-        return savedTask;
+        return convertToDTO(savedTask);
     }
 
-    public Boolean deleteTask(String taskCode){
+    public void deleteTask(String taskCode){
+
+        securityUtil.validateActiveUser();
         Task task = findByTaskCode(taskCode);
-        if(task != null){
-            String projectCode = task.getProjectCode();
-            taskRepository.delete(task);
-            updateProjectProgress(projectCode);
-            return true;
+        securityUtil.validateTenantAccess(task.getTenantId());
+        if(task.getStatus() == TaskStatus.DONE){
+            throw new RuntimeException("Completed tasks cannot be deleted");
         }
-        return false;
+        String projectCode = task.getProjectCode();
+        taskRepository.delete(task);
+        updateProjectProgress(projectCode);
     }
-
 }

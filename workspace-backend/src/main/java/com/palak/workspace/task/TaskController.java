@@ -23,43 +23,25 @@ public class TaskController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> createTask(@RequestBody Task task){
-        try{
-            Task createdTask = taskService.createTask(task);
-            return new ResponseEntity<>(taskService.convertToDTO(createdTask), HttpStatus.CREATED);
-        }catch (Exception e){
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(taskService.createTask(task), HttpStatus.CREATED);
     }
 
     @GetMapping("/task-code/{taskCode}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByTaskCode(@PathVariable String taskCode){
-
-        Task task = taskService.findByTaskCode(taskCode);
-        if(task != null){
-            return new ResponseEntity<>(taskService.convertToDTO(task), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(taskService.getTaskByCode(taskCode), HttpStatus.OK);
     }
 
     @GetMapping("/project/{projectCode}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByProjectCode(@PathVariable String projectCode){
-        List<Task> tasks = taskService.findByProjectCode(projectCode);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByProject(projectCode), HttpStatus.OK);
     }
 
-    @GetMapping("/tenant/{tenantId}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
-    public ResponseEntity<?> getByTenantId(@PathVariable String tenantId){
-        List<Task> tasks = taskService.findByTenantId(tenantId);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+    @GetMapping()
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getByTenantId(){
+        return new ResponseEntity<>(taskService.getMyOrganizationTasks(), HttpStatus.OK);
     }
 
     @GetMapping("/assignee/{employeeId}")
@@ -67,35 +49,25 @@ public class TaskController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getByAssignee(@PathVariable String employeeId){
-        List<Task> tasks = taskService.findByAssignedEmployee(employeeId);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByAssignee(employeeId), HttpStatus.OK);
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByStatus(@PathVariable TaskStatus status){
-        List<Task> tasks = taskService.findByStatus(status);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByStatus(status), HttpStatus.OK);
     }
 
     @GetMapping("/priority/{priority}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByPriority(@PathVariable TaskPriority priority){
-        List<Task> tasks = taskService.findByPriority(priority);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByPriority(priority), HttpStatus.OK);
     }
 
     @GetMapping("/due-date/{dueDate}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getByDueDate(@PathVariable LocalDate dueDate){
-        List<Task> tasks = taskService.findByDueDate(dueDate);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByDueDate(dueDate), HttpStatus.OK);
     }
 
     @GetMapping("/project/{projectCode}/status/{status}")
@@ -103,8 +75,7 @@ public class TaskController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getByProjectAndStatus(@PathVariable String projectCode, @PathVariable TaskStatus status){
-        List<Task> tasks = taskService.findByProjectCodeAndStatus(projectCode, status);
-        return new ResponseEntity<>(taskService.convertToDTOList(tasks), HttpStatus.OK);
+        return new ResponseEntity<>(taskService.getTasksByProjectAndStatus(projectCode, status), HttpStatus.OK);
     }
 
     @PutMapping("/{taskCode}")
@@ -112,16 +83,7 @@ public class TaskController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> updateTask(@PathVariable String taskCode, @RequestBody Task newTask){
-
-        try{
-            Task task = taskService.updateTask(taskCode, newTask);
-            if(task != null){
-                return new ResponseEntity<>(taskService.convertToDTO(task), HttpStatus.OK);
-            }
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }catch (Exception e){
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(taskService.updateTask(taskCode,newTask), HttpStatus.OK);
     }
 
     @DeleteMapping("/{taskCode}")
@@ -129,14 +91,8 @@ public class TaskController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> deleteTask(@PathVariable String taskCode){
-
-        Boolean deleted = taskService.deleteTask(taskCode);
-        if(deleted){
-            return new ResponseEntity<>(HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        taskService.deleteTask(taskCode);
+        return ResponseEntity.ok().build();
     }
-
-
 
 }
