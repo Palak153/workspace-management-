@@ -1,9 +1,7 @@
 package com.palak.workspace.security;
 
-import com.palak.workspace.user.User;
+import com.palak.workspace.auth.UserPrincipal;
 import com.palak.workspace.user.UserRole;
-import com.palak.workspace.user.UserService;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -11,27 +9,30 @@ import org.springframework.stereotype.Component;
 @Component
 public class SecurityUtil {
 
-    private final UserService userService;
+    private UserPrincipal getPrincipal(){
 
-    public SecurityUtil(@Lazy UserService userService) {
-        this.userService = userService;
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        return (UserPrincipal) authentication.getPrincipal();
     }
 
-    public User getCurrentUser(){
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        String email = authentication.getName();
-
-        return userService.findByEmail(email);
+    public String getCurrentEmail(){
+        return getPrincipal().getEmail();
     }
 
     public String getCurrentTenantId(){
-        return getCurrentUser().getTenantId();
+        return getPrincipal().getTenantId();
+    }
+
+    public String getCurrentEmployeeId(){
+        return getPrincipal().getEmployeeId();
     }
 
     public UserRole getCurrentUserRole(){
-        return getCurrentUser().getRole();
+        return getPrincipal().getRole();
     }
 
     public boolean isSuperAdmin(){
@@ -39,7 +40,8 @@ public class SecurityUtil {
     }
 
     public boolean hasTenantAccess(String tenantId){
-        return isSuperAdmin() || tenantId.equals(getCurrentTenantId());
+        return isSuperAdmin()
+                || tenantId.equals(getCurrentTenantId());
     }
 
     public void validateTenantAccess(String tenantId){
@@ -49,7 +51,8 @@ public class SecurityUtil {
     }
 
     public void validateActiveUser(){
-        if(!getCurrentUser().getIsActive()){
+        if(!Boolean.TRUE.equals(
+                getPrincipal().getIsActive())){
             throw new RuntimeException("Inactive user");
         }
     }

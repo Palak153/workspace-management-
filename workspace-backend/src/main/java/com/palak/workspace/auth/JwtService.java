@@ -29,6 +29,8 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", user.getRole().toString());
         claims.put("tenantId", user.getTenantId());
+        claims.put("employeeId", user.getEmployeeId());
+        claims.put("isActive", user.getIsActive());
         return createToken(claims, user.getEmail());
     }
 
@@ -57,6 +59,16 @@ public class JwtService {
     public String extractTenantId(String token) {
         Claims claims = extractAllClaims(token);
         return claims.get("tenantId", String.class);
+    }
+
+    public String extractEmployeeId(String token){
+        Claims claims = extractAllClaims(token);
+        return claims.get("employeeId", String.class);
+    }
+
+    public Boolean extractIsActive(String token){
+        Claims claims = extractAllClaims(token);
+        return claims.get("isActive", Boolean.class);
     }
 
     public Date extractExpiration(String token) {

@@ -51,8 +51,6 @@ public class UserService {
 
     public UserResponseDTO createUser(User user){
 
-        User currentUser = securityUtil.getCurrentUser();
-
         securityUtil.validateActiveUser();
 
         Organization organization = organizationRepository
@@ -61,7 +59,7 @@ public class UserService {
 
         securityUtil.validateTenantAccess(organization.getTenantId());
 
-        validateUserCreationRole(currentUser.getRole(), user.getRole());
+        validateUserCreationRole(securityUtil.getCurrentUserRole(), user.getRole());
 
         if(userRepository.findByEmail(user.getEmail()).isPresent()){
             throw new RuntimeException("Email already exists");
@@ -114,11 +112,10 @@ public class UserService {
         User oldUser = findByEmployeeId(empId);
         securityUtil.validateTenantAccess(oldUser.getTenantId());
         securityUtil.validateActiveUser();
-        User currentUser = securityUtil.getCurrentUser();
         UserRole currentRole = securityUtil.getCurrentUserRole();
 
         if(user.getIsActive() != null && !user.getIsActive()
-                && oldUser.getEmployeeId().equals(currentUser.getEmployeeId())){
+                && oldUser.getEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
             throw new RuntimeException("You cannot deactivate yourself");
         }
 
@@ -185,11 +182,10 @@ public class UserService {
         securityUtil.validateActiveUser();
         securityUtil.validateTenantAccess(user.getTenantId());
 
-        User currentUser = securityUtil.getCurrentUser();
         UserRole currentRole = securityUtil.getCurrentUserRole();
 
         // Cannot deactivate yourself
-        if(user.getEmployeeId().equals(currentUser.getEmployeeId())){
+        if(user.getEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
             throw new RuntimeException("You cannot deactivate yourself");
         }
 
