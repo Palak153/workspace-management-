@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserService {
@@ -18,24 +17,59 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationRepository organizationRepository;
+    private final SecurityUtil securityUtil;
 
-    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, PasswordEncoder passwordEncoder){
+    public UserService(UserRepository userRepository, OrganizationRepository organizationRepository, PasswordEncoder passwordEncoder, SecurityUtil securityUtil){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.organizationRepository =organizationRepository;
+        this.securityUtil = securityUtil;
     }
 
-    public User createUser(User user){
+    private void validateUserCreationRole(UserRole creatorRole, UserRole targetRole){
+        if(creatorRole == UserRole.ORG_ADMIN){
+            if(targetRole == UserRole.SUPER_ADMIN){
+                throw new RuntimeException("ORG_ADMIN cannot create SUPER_ADMIN");
+            }
+            if(targetRole == UserRole.ORG_ADMIN){
+                throw new RuntimeException("ORG_ADMIN cannot create another ORG_ADMIN");
+            }
+        }
+    }
 
-        User userByEmail = findByEmail(user.getEmail());
-        User userById = findByEmployeeId(user.getEmployeeId());
+    private void validateUserUpdateRole(UserRole currentRole, UserRole targetRole){
+        if(currentRole == UserRole.ORG_ADMIN){
+            if(targetRole == UserRole.SUPER_ADMIN){
+                throw new RuntimeException("ORG_ADMIN cannot update role to SUPER_ADMIN");
+            }
+            if(targetRole == UserRole.ORG_ADMIN){
+                throw new RuntimeException("ORG_ADMIN cannot update role to ORG_ADMIN");
+            }
+        }
+    }
 
-        if(userById != null || userByEmail != null){
-            throw new RuntimeException("User already exists");
+
+    public UserResponseDTO createUser(User user){
+
+        User currentUser = securityUtil.getCurrentUser();
+
+        securityUtil.validateActiveUser();
+
+        Organization organization = organizationRepository
+                .findByOrganizationCode(user.getOrganizationCode())
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+
+        securityUtil.validateTenantAccess(organization.getTenantId());
+
+        validateUserCreationRole(currentUser.getRole(), user.getRole());
+
+        if(userRepository.findByEmail(user.getEmail()).isPresent()){
+            throw new RuntimeException("Email already exists");
         }
 
-        Organization organization = organizationRepository.findByOrganizationCode(user.getOrganizationCode())
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+        if(userRepository.findByEmployeeId(user.getEmployeeId()).isPresent()){
+            throw new RuntimeException("Employee ID already exists");
+        }
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
             throw new RuntimeException("Cannot create user in inactive organization");
@@ -45,58 +79,88 @@ public class UserService {
         user.setCreatedAt(LocalDateTime.now());
         user.setIsActive(true);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+
+        User savedUser = userRepository.save(user);
+        return convertToDTO(savedUser);
     }
 
     public User findByEmail(String email){
-        Optional<User> user = userRepository.findByEmail(email);
-        if(user.isPresent()){
-            return user.get();
-        }else{
-            return null;
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+    }
+    public UserResponseDTO getUserByEmail(String email){
+        User user = findByEmail(email);
+        if(!securityUtil.hasTenantAccess(user.getTenantId())){
+            throw new RuntimeException("Access denied");
         }
+        return convertToDTO(user);
     }
 
     public User findByEmployeeId(String empId){
-        Optional<User> user = userRepository.findByEmployeeId(empId);
-        if(user.isPresent()){
-            return user.get();
-        }else{
-            return null;
+        return userRepository.findByEmployeeId(empId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+    }
+    public UserResponseDTO getUserByEmployeeId(String empId){
+        User user = findByEmployeeId(empId);
+        if(!securityUtil.hasTenantAccess(user.getTenantId())){
+            throw new RuntimeException("Access denied");
         }
+        return convertToDTO(user);
     }
 
-    public User updateUser(String empId, User user, boolean canUpdateActiveStatus){
+    public UserResponseDTO updateUser(String empId, User user){
         User oldUser = findByEmployeeId(empId);
-        if (oldUser != null){
+        securityUtil.validateTenantAccess(oldUser.getTenantId());
+        securityUtil.validateActiveUser();
+        User currentUser = securityUtil.getCurrentUser();
+        UserRole currentRole = securityUtil.getCurrentUserRole();
 
-           oldUser.setFirstName(
-                    user.getFirstName() != null && !user.getFirstName().isBlank() ?
-                            user.getFirstName() : oldUser.getFirstName());
-           oldUser.setLastName(
-                   user.getLastName() != null && !user.getLastName().isBlank() ?
-                           user.getLastName() : oldUser.getLastName());
-           oldUser.setEmail(
-                    user.getEmail() != null && !user.getEmail().isBlank() ?
-                            user.getEmail() : oldUser.getEmail());
-
-           oldUser.setDesignation(
-                   user.getDesignation() != null && !user.getDesignation().isBlank() ?
-                           user.getDesignation() : oldUser.getDesignation());
-
-           if(user.getRole() != null){
-                oldUser.setRole(user.getRole());
-           }
-
-           if(canUpdateActiveStatus && user.getIsActive() != null){
-                oldUser.setIsActive(user.getIsActive());
-           }
-
-           oldUser.setUpdatedAt(LocalDateTime.now());
-
-           return userRepository.save(oldUser);
+        if(user.getIsActive() != null && !user.getIsActive()
+                && oldUser.getEmployeeId().equals(currentUser.getEmployeeId())){
+            throw new RuntimeException("You cannot deactivate yourself");
         }
-        return null;
+
+        if(user.getRole() != null){
+            validateUserUpdateRole(currentRole, user.getRole());
+        }
+
+        if(oldUser.getRole() == UserRole.SUPER_ADMIN){
+            throw new RuntimeException("Cannot modify SUPER_ADMIN");
+        }
+
+        if(currentRole == UserRole.MANAGER && oldUser.getRole() != UserRole.EMPLOYEE){
+            throw new RuntimeException("Manager can only modify employees");
+        }
+
+        boolean canUpdateActiveStatus = currentRole == UserRole.SUPER_ADMIN || currentRole == UserRole.ORG_ADMIN;
+
+        oldUser.setFirstName(
+                user.getFirstName() != null && !user.getFirstName().isBlank() ?
+                        user.getFirstName() : oldUser.getFirstName());
+        oldUser.setLastName(
+                user.getLastName() != null && !user.getLastName().isBlank() ?
+                        user.getLastName() : oldUser.getLastName());
+        oldUser.setEmail(
+                user.getEmail() != null && !user.getEmail().isBlank() ?
+                        user.getEmail() : oldUser.getEmail());
+
+        oldUser.setDesignation(
+                user.getDesignation() != null && !user.getDesignation().isBlank() ?
+                        user.getDesignation() : oldUser.getDesignation());
+
+        if(user.getRole() != null){
+            oldUser.setRole(user.getRole());
+        }
+
+        if(canUpdateActiveStatus && user.getIsActive() != null){
+            oldUser.setIsActive(user.getIsActive());
+        }
+
+        oldUser.setUpdatedAt(LocalDateTime.now());
+        User updatedUser = userRepository.save(oldUser);
+        return convertToDTO(updatedUser);
     }
 
     public void saveUser(User user){
@@ -106,29 +170,65 @@ public class UserService {
     public List<User> allTenantUser(String tenantId){
         return userRepository.findByTenantId(tenantId);
     }
-
-    public User deactivateUser(String empId){
-
-        User user = findByEmployeeId(empId);
-
-        if(user != null){
-            user.setIsActive(false);
-            user.setUpdatedAt(LocalDateTime.now());
-            return userRepository.save(user);
-        }
-        return null;
+    public List<UserResponseDTO> getMyOrganizationUsers(){
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<User> users = allTenantUser(tenantId);
+        return convertToDTOList(users);
     }
 
-    public User activateUser(String empId){
+    public UserResponseDTO deactivateUser(String empId){
+        User user = findByEmployeeId(empId);
+        if(!user.getIsActive()){
+            throw new RuntimeException("User is already inactive");
+        }
 
+        securityUtil.validateActiveUser();
+        securityUtil.validateTenantAccess(user.getTenantId());
+
+        User currentUser = securityUtil.getCurrentUser();
+        UserRole currentRole = securityUtil.getCurrentUserRole();
+
+        // Cannot deactivate yourself
+        if(user.getEmployeeId().equals(currentUser.getEmployeeId())){
+            throw new RuntimeException("You cannot deactivate yourself");
+        }
+
+        // Protect SUPER_ADMIN
+        if(user.getRole() == UserRole.SUPER_ADMIN){
+            throw new RuntimeException("Cannot deactivate SUPER_ADMIN");
+        }
+
+        // ORG_ADMIN restrictions
+        if(currentRole == UserRole.ORG_ADMIN && user.getRole() == UserRole.ORG_ADMIN){
+            throw new RuntimeException("Cannot deactivate ORG_ADMIN");
+        }
+
+        user.setIsActive(false);
+        user.setUpdatedAt(LocalDateTime.now());
+        User updatedUser = userRepository.save(user);
+        return convertToDTO(updatedUser);
+    }
+
+    public UserResponseDTO activateUser(String empId){
         User user = findByEmployeeId(empId);
 
-        if(user != null){
-            user.setIsActive(true);
-            user.setUpdatedAt(LocalDateTime.now());
-            return userRepository.save(user);
+        if(user.getIsActive()){
+            throw new RuntimeException("User is already active");
         }
-        return null;
+        securityUtil.validateActiveUser();
+        securityUtil.validateTenantAccess(user.getTenantId());
+
+        UserRole currentRole = securityUtil.getCurrentUserRole();
+
+        // ORG_ADMIN restrictions
+        if(currentRole == UserRole.ORG_ADMIN && user.getRole() == UserRole.ORG_ADMIN){
+            throw new RuntimeException("Cannot activate ORG_ADMIN");
+        }
+
+        user.setIsActive(true);
+        user.setUpdatedAt(LocalDateTime.now());
+        User updatedUser = userRepository.save(user);
+        return convertToDTO(updatedUser);
     }
 
     public UserResponseDTO convertToDTO(User user) {

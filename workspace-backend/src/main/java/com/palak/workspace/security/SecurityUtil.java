@@ -3,6 +3,7 @@ package com.palak.workspace.security;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRole;
 import com.palak.workspace.user.UserService;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -12,7 +13,7 @@ public class SecurityUtil {
 
     private final UserService userService;
 
-    public SecurityUtil(UserService userService) {
+    public SecurityUtil(@Lazy UserService userService) {
         this.userService = userService;
     }
 
@@ -44,6 +45,12 @@ public class SecurityUtil {
     public void validateTenantAccess(String tenantId){
         if(!hasTenantAccess(tenantId)){
             throw new RuntimeException("Access denied");
+        }
+    }
+
+    public void validateActiveUser(){
+        if(!getCurrentUser().getIsActive()){
+            throw new RuntimeException("Inactive user");
         }
     }
 }
