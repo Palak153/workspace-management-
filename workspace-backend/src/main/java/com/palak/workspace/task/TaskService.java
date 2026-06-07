@@ -1,6 +1,7 @@
 package com.palak.workspace.task;
 
-import com.palak.workspace.organization.OrganizationRepository;
+import com.palak.workspace.exception.ResourceNotFoundException;
+import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectRepository;
 import com.palak.workspace.project.ProjectStatus;
@@ -29,6 +30,13 @@ public class TaskService {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.securityUtil = securityUtil;
+    }
+
+    private void validateDueDate(LocalDate dueDate){
+
+        if(dueDate != null && dueDate.isBefore(LocalDate.now())){
+            throw new ValidationException("Due date cannot be in the past");
+        }
     }
 
     public TaskResponseDTO convertToDTO(Task task){
@@ -66,53 +74,53 @@ public class TaskService {
 
     private Project validateProject(String projectCode, String tenantId){
         Project project = projectRepository.findByProjectCode(projectCode)
-                .orElseThrow(() -> new RuntimeException("Invalid project code"));
+                .orElseThrow(() -> new ValidationException("Invalid project code"));
 
         if(project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED){
-            throw new RuntimeException("Cannot create task in completed or cancelled project");
+            throw new ValidationException("Cannot create task in completed or cancelled project");
         }
 
         // Validate tenant
         if (!project.getTenantId().equals(tenantId)) {
-            throw new RuntimeException("Project does not belong to tenant");
+            throw new ValidationException("Project does not belong to tenant");
         }
         return project;
     }
 
     private void validateTaskAssignee(String employeeId, String tenantId, Project project){
-        User assignee = userRepository.findByEmployeeId(employeeId).orElseThrow(() -> new RuntimeException("Assigned user not found"));
+        User assignee = userRepository.findByEmployeeId(employeeId).orElseThrow(() -> new ResourceNotFoundException("Assigned user not found"));
 
         if (!assignee.getTenantId().equals(tenantId)) {
-            throw new RuntimeException("Assigned user does not belong to this organization");
+            throw new ValidationException("Assigned user does not belong to this organization");
         }
 
         if(!assignee.getIsActive()){
-            throw new RuntimeException("Cannot assign task to inactive user");
+            throw new ValidationException("Cannot assign task to inactive user");
         }
 
         // Assignee must belong to project
         if (!project.getMemberIds().contains(employeeId)) {
-            throw new RuntimeException("Assigned user is not a member of the project");
+            throw new ValidationException("Assigned user is not a member of the project");
         }
     }
 
     private void validateTaskCreator(String creatorId, String tenantId, Project project){
-        User creator = userRepository.findByEmployeeId(creatorId).orElseThrow(() -> new RuntimeException("Task creator not found"));
+        User creator = userRepository.findByEmployeeId(creatorId).orElseThrow(() -> new ResourceNotFoundException("Task creator not found"));
 
         if (!creator.getTenantId().equals(tenantId)) {
-            throw new RuntimeException("Task creator does not belong to this organization");
+            throw new ValidationException("Task creator does not belong to this organization");
         }
 
         if(!creator.getIsActive()){
-            throw new RuntimeException("Inactive user cannot create task");
+            throw new ValidationException("Inactive user cannot create task");
         }
 
         if(creator.getRole() == UserRole.EMPLOYEE){
-            throw new RuntimeException("Employee cannot create task");
+            throw new ValidationException("Employee cannot create task");
         }
 
         if(creator.getRole() == UserRole.MANAGER && !project.getProjectManagerEmployeeId().equals(creatorId)){
-            throw new RuntimeException("Manager can only create tasks in projects they manage");
+            throw new ValidationException("Manager can only create tasks in projects they manage");
         }
     }
 
@@ -131,9 +139,7 @@ public class TaskService {
         // Validate creator
         validateTaskCreator(creatorId, tenantId, project);
 
-        if(task.getDueDate() != null && task.getDueDate().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Due date cannot be in the past");
-        }
+        validateDueDate(task.getDueDate());
 
         String taskCode = "TASK_" + UUID.randomUUID()
                         .toString()
@@ -152,7 +158,8 @@ public class TaskService {
     }
 
     public Task findByTaskCode(String taskCode){
-        return taskRepository.findByTaskCode(taskCode).orElseThrow(() -> new RuntimeException("Task not found"));
+        return taskRepository.findByTaskCode(taskCode).orElseThrow(() ->
+                new ResourceNotFoundException("Task not found"));
     }
     public TaskResponseDTO getTaskByCode(String taskCode){
         securityUtil.validateActiveUser();
@@ -162,7 +169,7 @@ public class TaskService {
         if(securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE){
             String employeeId = securityUtil.getCurrentEmployeeId();
             if(!task.getAssignedToEmployeeId().equals(employeeId)){
-                throw new RuntimeException("Employees can only view their own tasks");
+                throw new ValidationException("Employees can only view their own tasks");
             }
         }
         return convertToDTO(task);
@@ -171,7 +178,7 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByProject(String projectCode){
         securityUtil.validateActiveUser();
         Project project = projectRepository.findByProjectCode(projectCode)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
         securityUtil.validateTenantAccess(project.getTenantId());
 
@@ -191,7 +198,7 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByAssignee(String employeeId){
         securityUtil.validateActiveUser();
         User assignee = userRepository.findByEmployeeId(employeeId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         securityUtil.validateTenantAccess(assignee.getTenantId());
         List<Task> tasks = taskRepository.findByAssignedToEmployeeId(employeeId);
         return convertToDTOList(tasks);
@@ -240,7 +247,7 @@ public class TaskService {
         securityUtil.validateActiveUser();
         Project project = projectRepository
                 .findByProjectCode(projectCode)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
         securityUtil.validateTenantAccess(project.getTenantId());
         List<Task> tasks = taskRepository.findByProjectCodeAndStatus(projectCode, status);
@@ -270,7 +277,7 @@ public class TaskService {
         securityUtil.validateTenantAccess(oldTask.getTenantId());
 
         if(oldTask.getStatus() == TaskStatus.DONE){
-            throw new RuntimeException("Completed task cannot be modified");
+            throw new ValidationException("Completed task cannot be modified");
         }
 
         Project project = validateProject(oldTask.getProjectCode(), oldTask.getTenantId());
@@ -286,9 +293,8 @@ public class TaskService {
         oldTask.setPriority(
                 newTask.getPriority() != null ? newTask.getPriority() : oldTask.getPriority());
 
-        if(newTask.getDueDate() != null && newTask.getDueDate().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Due date cannot be in the past");
-        }
+        validateDueDate(newTask.getDueDate());
+
         oldTask.setDueDate(
                 newTask.getDueDate() != null ? newTask.getDueDate() : oldTask.getDueDate());
 
@@ -323,7 +329,7 @@ public class TaskService {
         Task task = findByTaskCode(taskCode);
         securityUtil.validateTenantAccess(task.getTenantId());
         if(task.getStatus() == TaskStatus.DONE){
-            throw new RuntimeException("Completed tasks cannot be deleted");
+            throw new ValidationException("Completed tasks cannot be deleted");
         }
         String projectCode = task.getProjectCode();
         taskRepository.delete(task);

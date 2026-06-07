@@ -92,7 +92,7 @@ public class TaskController {
     )
     public ResponseEntity<?> deleteTask(@PathVariable String taskCode){
         taskService.deleteTask(taskCode);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
 }

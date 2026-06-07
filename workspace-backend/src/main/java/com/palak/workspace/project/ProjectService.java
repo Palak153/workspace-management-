@@ -1,5 +1,7 @@
 package com.palak.workspace.project;
 
+import com.palak.workspace.exception.ResourceNotFoundException;
+import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationStatus;
@@ -9,6 +11,7 @@ import com.palak.workspace.user.UserRepository;
 import com.palak.workspace.user.UserRole;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,11 +58,10 @@ public class ProjectService {
         Organization organization = organizationRepository
                 .findByTenantId(tenantId)
                 .orElseThrow(() ->
-                        new RuntimeException("Organization not found"));
+                        new ResourceNotFoundException("Organization not found"));
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
-            throw new RuntimeException(
-                    "Organization is inactive");
+            throw new ValidationException("Organization is inactive");
         }
     }
 
@@ -68,18 +70,18 @@ public class ProjectService {
         User manager = userRepository
                 .findByEmployeeId(employeeId)
                 .orElseThrow(() ->
-                        new RuntimeException("Project manager not found"));
+                        new ResourceNotFoundException("Project manager not found"));
 
         if(!manager.getIsActive()){
-            throw new RuntimeException("Project manager is inactive");
+            throw new ValidationException("Project manager is inactive");
         }
 
         if (manager.getRole() != UserRole.MANAGER) {
-            throw new RuntimeException("Selected user is not a manager");
+            throw new ValidationException("Selected user is not a manager");
         }
 
         if (!manager.getTenantId().equals(tenantId)) {
-            throw new RuntimeException("Manager does not belong to this organization");
+            throw new ValidationException("Manager does not belong to this organization");
         }
     }
 
@@ -91,14 +93,14 @@ public class ProjectService {
         for(String memberId : memberIds){
 
             User member = userRepository.findByEmployeeId(memberId)
-                    .orElseThrow(() -> new RuntimeException("Invalid member id : " + memberId));
+                    .orElseThrow(() -> new ValidationException("Invalid member id : " + memberId));
 
             if(!member.getTenantId().equals(tenantId)){
-                throw new RuntimeException("Member does not belong to this organization");
+                throw new ValidationException("Member does not belong to this organization");
             }
 
             if(!member.getIsActive()){
-                throw new RuntimeException("Inactive member cannot be assigned to project");
+                throw new ValidationException("Inactive member cannot be assigned to project");
             }
         }
     }
@@ -126,6 +128,8 @@ public class ProjectService {
         project.setProjectCode(projectCode);
         project.setCreatedAt(LocalDateTime.now());
         project.setStatus(ProjectStatus.PLANNED);
+        project.setStartDate(null);
+        project.setEndDate(null);
         project.setProgressPercentage(0);
         Project savedProject = projectRepository.save(project);
         return convertToDTO(savedProject);
@@ -137,12 +141,36 @@ public class ProjectService {
         Project oldProject = findByProjectCode(projectCode);
         securityUtil.validateTenantAccess(oldProject.getTenantId());
         validateActiveOrganization(oldProject.getTenantId());
+
         if(oldProject.getStatus() == ProjectStatus.COMPLETED){
-            throw new RuntimeException("Completed project cannot be modified");
+            throw new ValidationException("Completed project cannot be modified");
+        }
+        if(oldProject.getStatus() == ProjectStatus.CANCELLED){
+            throw new ValidationException("Cancelled project cannot be modified");
         }
 
         if(newProject.getStatus() != null){
-            oldProject.setStatus(newProject.getStatus());
+
+            ProjectStatus currentStatus = oldProject.getStatus();
+            ProjectStatus newStatus = newProject.getStatus();
+
+            if(currentStatus == ProjectStatus.PLANNED && newStatus == ProjectStatus.IN_PROGRESS){
+                if(oldProject.getStartDate() == null){
+                    oldProject.setStartDate(LocalDate.now());
+                }
+            }
+
+            if(currentStatus == ProjectStatus.PLANNED && newStatus == ProjectStatus.COMPLETED){
+                throw new ValidationException("Project must be started before completion");
+            }
+
+            if(newStatus == ProjectStatus.COMPLETED){
+                if(oldProject.getEndDate() == null){
+                    oldProject.setEndDate(LocalDate.now());
+                }
+            }
+
+            oldProject.setStatus(newStatus);
         }
 
         if(newProject.getProjectManagerEmployeeId() != null && !newProject.getProjectManagerEmployeeId().isBlank()){
@@ -163,12 +191,6 @@ public class ProjectService {
                 newProject.getDescription() != null && !newProject.getDescription().isBlank()
                         ? newProject.getDescription() : oldProject.getDescription());
 
-        oldProject.setStartDate(
-                newProject.getStartDate() != null ? newProject.getStartDate() : oldProject.getStartDate());
-
-        oldProject.setEndDate(
-                newProject.getEndDate() != null ? newProject.getEndDate() : oldProject.getEndDate());
-
         oldProject.setUpdatedAt(LocalDateTime.now());
         Project updatedProject = projectRepository.save(oldProject);
         return convertToDTO(updatedProject);
@@ -182,7 +204,7 @@ public class ProjectService {
         validateActiveOrganization(project.getTenantId());
 
         if(project.getStatus() == ProjectStatus.COMPLETED){
-            throw new RuntimeException("Completed project cannot be cancelled");
+            throw new ValidationException("Completed project cannot be cancelled");
         }
         project.setStatus(ProjectStatus.CANCELLED);
         project.setUpdatedAt(LocalDateTime.now());
@@ -193,9 +215,9 @@ public class ProjectService {
     public List<ProjectResponseDTO> getProjectsByManager(String employeeId){
         securityUtil.validateActiveUser();
         User manager = userRepository.findByEmployeeId(employeeId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
         if(manager.getRole() != UserRole.MANAGER){
-            throw new RuntimeException("Selected user is not a manager");
+            throw new ValidationException("Selected user is not a manager");
         }
         securityUtil.validateTenantAccess(manager.getTenantId());
         List<Project> projects = projectRepository.findByProjectManagerEmployeeId(employeeId);
@@ -224,7 +246,7 @@ public class ProjectService {
 
     public Project findByProjectCode(String projectCode){
         return projectRepository.findByProjectCode(projectCode)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
     public ProjectResponseDTO getProjectByCode(String projectCode){
         securityUtil.validateActiveUser();

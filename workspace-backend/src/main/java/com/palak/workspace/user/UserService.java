@@ -1,5 +1,8 @@
 package com.palak.workspace.user;
 
+import com.palak.workspace.exception.AccessDeniedException;
+import com.palak.workspace.exception.ResourceNotFoundException;
+import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationStatus;
@@ -29,10 +32,10 @@ public class UserService {
     private void validateUserCreationRole(UserRole creatorRole, UserRole targetRole){
         if(creatorRole == UserRole.ORG_ADMIN){
             if(targetRole == UserRole.SUPER_ADMIN){
-                throw new RuntimeException("ORG_ADMIN cannot create SUPER_ADMIN");
+                throw new ValidationException("ORG_ADMIN cannot create SUPER_ADMIN");
             }
             if(targetRole == UserRole.ORG_ADMIN){
-                throw new RuntimeException("ORG_ADMIN cannot create another ORG_ADMIN");
+                throw new ValidationException("ORG_ADMIN cannot create another ORG_ADMIN");
             }
         }
     }
@@ -40,10 +43,10 @@ public class UserService {
     private void validateUserUpdateRole(UserRole currentRole, UserRole targetRole){
         if(currentRole == UserRole.ORG_ADMIN){
             if(targetRole == UserRole.SUPER_ADMIN){
-                throw new RuntimeException("ORG_ADMIN cannot update role to SUPER_ADMIN");
+                throw new ValidationException("ORG_ADMIN cannot update role to SUPER_ADMIN");
             }
             if(targetRole == UserRole.ORG_ADMIN){
-                throw new RuntimeException("ORG_ADMIN cannot update role to ORG_ADMIN");
+                throw new ValidationException("ORG_ADMIN cannot update role to ORG_ADMIN");
             }
         }
     }
@@ -55,22 +58,22 @@ public class UserService {
 
         Organization organization = organizationRepository
                 .findByOrganizationCode(user.getOrganizationCode())
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
         securityUtil.validateTenantAccess(organization.getTenantId());
 
         validateUserCreationRole(securityUtil.getCurrentUserRole(), user.getRole());
 
         if(userRepository.findByEmail(user.getEmail()).isPresent()){
-            throw new RuntimeException("Email already exists");
+            throw new ValidationException("Email already exists");
         }
 
         if(userRepository.findByEmployeeId(user.getEmployeeId()).isPresent()){
-            throw new RuntimeException("Employee ID already exists");
+            throw new ValidationException("Employee ID already exists");
         }
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
-            throw new RuntimeException("Cannot create user in inactive organization");
+            throw new ValidationException("Cannot create user in inactive organization");
         }
 
         user.setTenantId(organization.getTenantId());
@@ -85,38 +88,35 @@ public class UserService {
     public User findByEmail(String email){
         return userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new ResourceNotFoundException("User not found"));
     }
     public UserResponseDTO getUserByEmail(String email){
         User user = findByEmail(email);
-        if(!securityUtil.hasTenantAccess(user.getTenantId())){
-            throw new RuntimeException("Access denied");
-        }
+        securityUtil.validateTenantAccess(user.getTenantId());
         return convertToDTO(user);
     }
 
     public User findByEmployeeId(String empId){
         return userRepository.findByEmployeeId(empId)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new ResourceNotFoundException("User not found"));
     }
     public UserResponseDTO getUserByEmployeeId(String empId){
         User user = findByEmployeeId(empId);
-        if(!securityUtil.hasTenantAccess(user.getTenantId())){
-            throw new RuntimeException("Access denied");
-        }
+        securityUtil.validateTenantAccess(user.getTenantId());
         return convertToDTO(user);
     }
 
     public UserResponseDTO updateUser(String empId, User user){
+        securityUtil.validateActiveUser();
         User oldUser = findByEmployeeId(empId);
         securityUtil.validateTenantAccess(oldUser.getTenantId());
-        securityUtil.validateActiveUser();
+
         UserRole currentRole = securityUtil.getCurrentUserRole();
 
         if(user.getIsActive() != null && !user.getIsActive()
                 && oldUser.getEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
-            throw new RuntimeException("You cannot deactivate yourself");
+            throw new ValidationException("You cannot deactivate yourself");
         }
 
         if(user.getRole() != null){
@@ -124,11 +124,11 @@ public class UserService {
         }
 
         if(oldUser.getRole() == UserRole.SUPER_ADMIN){
-            throw new RuntimeException("Cannot modify SUPER_ADMIN");
+            throw new ValidationException("Cannot modify SUPER_ADMIN");
         }
 
         if(currentRole == UserRole.MANAGER && oldUser.getRole() != UserRole.EMPLOYEE){
-            throw new RuntimeException("Manager can only modify employees");
+            throw new ValidationException("Manager can only modify employees");
         }
 
         boolean canUpdateActiveStatus = currentRole == UserRole.SUPER_ADMIN || currentRole == UserRole.ORG_ADMIN;
@@ -139,6 +139,13 @@ public class UserService {
         oldUser.setLastName(
                 user.getLastName() != null && !user.getLastName().isBlank() ?
                         user.getLastName() : oldUser.getLastName());
+
+        if(user.getEmail() != null && !user.getEmail().equals(oldUser.getEmail())){
+
+            if(userRepository.findByEmail(user.getEmail()).isPresent()){
+                throw new ValidationException("Email already exists");
+            }
+        }
         oldUser.setEmail(
                 user.getEmail() != null && !user.getEmail().isBlank() ?
                         user.getEmail() : oldUser.getEmail());
@@ -168,6 +175,7 @@ public class UserService {
         return userRepository.findByTenantId(tenantId);
     }
     public List<UserResponseDTO> getMyOrganizationUsers(){
+        securityUtil.validateActiveUser();
         String tenantId = securityUtil.getCurrentTenantId();
         List<User> users = allTenantUser(tenantId);
         return convertToDTOList(users);
@@ -176,7 +184,7 @@ public class UserService {
     public UserResponseDTO deactivateUser(String empId){
         User user = findByEmployeeId(empId);
         if(!user.getIsActive()){
-            throw new RuntimeException("User is already inactive");
+            throw new ValidationException("User is already inactive");
         }
 
         securityUtil.validateActiveUser();
@@ -186,17 +194,17 @@ public class UserService {
 
         // Cannot deactivate yourself
         if(user.getEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
-            throw new RuntimeException("You cannot deactivate yourself");
+            throw new ValidationException("You cannot deactivate yourself");
         }
 
         // Protect SUPER_ADMIN
         if(user.getRole() == UserRole.SUPER_ADMIN){
-            throw new RuntimeException("Cannot deactivate SUPER_ADMIN");
+            throw new ValidationException("Cannot deactivate SUPER_ADMIN");
         }
 
         // ORG_ADMIN restrictions
         if(currentRole == UserRole.ORG_ADMIN && user.getRole() == UserRole.ORG_ADMIN){
-            throw new RuntimeException("Cannot deactivate ORG_ADMIN");
+            throw new ValidationException("Cannot deactivate ORG_ADMIN");
         }
 
         user.setIsActive(false);
@@ -209,7 +217,7 @@ public class UserService {
         User user = findByEmployeeId(empId);
 
         if(user.getIsActive()){
-            throw new RuntimeException("User is already active");
+            throw new ValidationException("User is already active");
         }
         securityUtil.validateActiveUser();
         securityUtil.validateTenantAccess(user.getTenantId());
@@ -218,7 +226,7 @@ public class UserService {
 
         // ORG_ADMIN restrictions
         if(currentRole == UserRole.ORG_ADMIN && user.getRole() == UserRole.ORG_ADMIN){
-            throw new RuntimeException("Cannot activate ORG_ADMIN");
+            throw new ValidationException("Cannot activate ORG_ADMIN");
         }
 
         user.setIsActive(true);

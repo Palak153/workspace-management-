@@ -1,6 +1,8 @@
 package com.palak.workspace.security;
 
 import com.palak.workspace.auth.UserPrincipal;
+import com.palak.workspace.exception.AccessDeniedException;
+import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.user.UserRole;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,7 +18,12 @@ public class SecurityUtil {
                         .getContext()
                         .getAuthentication();
 
-        return (UserPrincipal) authentication.getPrincipal();
+        if(authentication == null || !(authentication.getPrincipal()
+                        instanceof UserPrincipal principal)){
+
+            throw new AccessDeniedException("Authentication required");
+        }
+        return principal;
     }
 
     public String getCurrentEmail(){
@@ -45,14 +52,15 @@ public class SecurityUtil {
 
     public void validateTenantAccess(String tenantId){
         if(!hasTenantAccess(tenantId)){
-            throw new RuntimeException("Access denied");
+            throw new AccessDeniedException("Access denied");
         }
     }
 
     public void validateActiveUser(){
         if(!Boolean.TRUE.equals(
                 getPrincipal().getIsActive())){
-            throw new RuntimeException("Inactive user");
+            throw new ValidationException("Inactive user");
         }
     }
+
 }

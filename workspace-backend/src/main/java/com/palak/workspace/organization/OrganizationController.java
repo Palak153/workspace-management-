@@ -1,6 +1,5 @@
 package com.palak.workspace.organization;
 
-import com.palak.workspace.security.SecurityUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,7 +12,7 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    public OrganizationController(OrganizationService organizationService, SecurityUtil securityUtil){
+    public OrganizationController(OrganizationService organizationService){
         this.organizationService = organizationService;
     }
 

@@ -1,5 +1,8 @@
 package com.palak.workspace.organization;
 
+import com.palak.workspace.exception.AccessDeniedException;
+import com.palak.workspace.exception.ResourceNotFoundException;
+import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.security.SecurityUtil;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +26,7 @@ public class OrganizationService {
     public OrganizationResponseDTO saveOrganization(Organization organization) {
 
         if (organizationRepository.findByOrganizationCode(organization.getOrganizationCode()).isPresent()) {
-            throw new RuntimeException("Organization code already exists");
+            throw new ValidationException("Organization code already exists");
         }
         organization.setCreatedAt(LocalDateTime.now());
         organization.setStatus(OrganizationStatus.ACTIVE);
@@ -38,14 +41,13 @@ public class OrganizationService {
 
     public OrganizationResponseDTO updateOrganization(String organizationCode, Organization newOrganization){
 
+        securityUtil.validateActiveUser();
         Organization oldOrganization = findOrganizationByCode(organizationCode);
 
-        if(!securityUtil.hasTenantAccess(oldOrganization.getTenantId())){
-            throw new RuntimeException("Access denied");
-        }
+        securityUtil.validateTenantAccess(oldOrganization.getTenantId());
 
         if(!securityUtil.isSuperAdmin() && newOrganization.getStatus() != null){
-            throw new RuntimeException("Only SUPER_ADMIN can change organization status");
+            throw new ValidationException("Only SUPER_ADMIN can change organization status");
         }
 
         if(securityUtil.isSuperAdmin() && newOrganization.getStatus() != null){
@@ -83,20 +85,18 @@ public class OrganizationService {
 
     public Organization findOrganizationByCode(String organizationCode){
         return organizationRepository.findByOrganizationCode(organizationCode)
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
     }
 
     public OrganizationResponseDTO getOrganizationByCode(String orgCode){
         Organization organization = findOrganizationByCode(orgCode);
-        if(!securityUtil.hasTenantAccess(organization.getTenantId())){
-            throw new RuntimeException("Access denied");
-        }
+        securityUtil.validateTenantAccess(organization.getTenantId());
         return convertToDTO(organization);
     }
 
     public Organization findOrganizationByTenantID(String tenantId){
         return organizationRepository.findByTenantId(tenantId)
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
     }
     public OrganizationResponseDTO getMyOrganization() {
         String tenantId = securityUtil.getCurrentTenantId();
