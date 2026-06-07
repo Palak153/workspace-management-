@@ -22,12 +22,7 @@ public class ProjectController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> createProject(@RequestBody Project project){
-        try{
-            Project createdProject = projectService.createProject(project);
-            return new ResponseEntity<>(projectService.convertToDTO(createdProject), HttpStatus.CREATED);
-        }catch (Exception e){
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(projectService.createProject(project), HttpStatus.CREATED);
     }
 
     @GetMapping("/project-code/{projectCode}")
@@ -35,20 +30,13 @@ public class ProjectController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getByProjectCode(@PathVariable String projectCode){
-        Project project = projectService.findByProjectCode(projectCode);
-        if(project != null){
-            return new ResponseEntity<>(projectService.convertToDTO(project), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(projectService.getProjectByCode(projectCode), HttpStatus.OK);
     }
 
-    @GetMapping("/tenant/{tenantId}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
-    public ResponseEntity<?> getProjectsByTenant(@PathVariable String tenantId){
-        List<Project> projects = projectService.findByTenantId(tenantId);
-        return new ResponseEntity<>(projectService.convertToDTOList(projects), HttpStatus.OK);
+    @GetMapping("/my-projects")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getMyProjects(){
+        return new ResponseEntity<>(projectService.getMyProjects(), HttpStatus.OK);
     }
 
     @GetMapping("/status/{status}")
@@ -56,8 +44,7 @@ public class ProjectController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getProjectsByStatus(@PathVariable ProjectStatus status){
-        List<Project> projects = projectService.findByStatus(status);
-        return new ResponseEntity<>(projectService.convertToDTOList(projects), HttpStatus.OK);
+        return new ResponseEntity<>(projectService.findByStatus(status), HttpStatus.OK);
     }
 
     @GetMapping("/project-manager/{employeeId}")
@@ -65,8 +52,7 @@ public class ProjectController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getProjectsByManager(@PathVariable String employeeId){
-        List<Project> projects = projectService.findByProjectManagerEmployeeId(employeeId);
-        return new ResponseEntity<>(projectService.convertToDTOList(projects), HttpStatus.OK);
+        return new ResponseEntity<>(projectService.getProjectsByManager(employeeId), HttpStatus.OK);
     }
 
     @PutMapping("/{projectCode}")
@@ -74,23 +60,18 @@ public class ProjectController {
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> updateProject(@PathVariable String projectCode, @RequestBody Project newProject){
-        Project project = projectService.updateProject(projectCode, newProject);
-        if(project != null){
-            return new ResponseEntity<>(projectService.convertToDTO(project), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(projectService.updateProject(projectCode, newProject), HttpStatus.OK);
     }
 
-    @DeleteMapping("/{projectCode}")
+    @PatchMapping("/{projectCode}/cancel")
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
     )
-    public ResponseEntity<?> deleteProject(@PathVariable String projectCode){
-        Boolean deleted = projectService.deleteProject(projectCode);
-        if(deleted){
-            return new ResponseEntity<>(HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    public ResponseEntity<?> cancelProject(
+            @PathVariable String projectCode){
+        return new ResponseEntity<>(
+                projectService.cancelProject(projectCode),
+                HttpStatus.OK);
     }
 
 }

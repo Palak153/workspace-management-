@@ -40,8 +40,7 @@ public class SecurityUtil {
     }
 
     public boolean hasTenantAccess(String tenantId){
-        return isSuperAdmin()
-                || tenantId.equals(getCurrentTenantId());
+        return isSuperAdmin() || tenantId.equals(getCurrentTenantId());
     }
 
     public void validateTenantAccess(String tenantId){
