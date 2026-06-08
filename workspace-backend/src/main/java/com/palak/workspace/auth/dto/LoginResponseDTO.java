@@ -1,4 +1,4 @@
-package com.palak.workspace.auth;
+package com.palak.workspace.auth.dto;
 
 import com.palak.workspace.user.UserRole;
 import lombok.Data;
