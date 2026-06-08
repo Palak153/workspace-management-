@@ -5,6 +5,9 @@ import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationStatus;
+import com.palak.workspace.project.projectDTO.CreateProjectRequest;
+import com.palak.workspace.project.projectDTO.ProjectResponseDTO;
+import com.palak.workspace.project.projectDTO.UpdateProjectRequest;
 import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRepository;
@@ -105,7 +108,7 @@ public class ProjectService {
         }
     }
 
-    public ProjectResponseDTO  createProject(Project project) {
+    public ProjectResponseDTO  createProject(CreateProjectRequest request) {
         securityUtil.validateActiveUser();
 
         String tenantId = securityUtil.getCurrentTenantId();
@@ -114,28 +117,32 @@ public class ProjectService {
         validateActiveOrganization(tenantId);
 
         // Validate manager
-        validateProjectManager(project.getProjectManagerEmployeeId(), tenantId);
+        validateProjectManager(request.getProjectManagerEmployeeId(), tenantId);
 
         // Validate members
-        validateProjectMembers(project.getMemberIds(),tenantId);
+        validateProjectMembers(request.getMemberIds(),tenantId);
 
         String projectCode = "PROJ_" + UUID.randomUUID()
                 .toString()
                 .substring(0, 6)
                 .toUpperCase();
 
+        Project project = new Project();
+
+        project.setProjectName(request.getProjectName());
+        project.setDescription(request.getDescription());
+        project.setProjectManagerEmployeeId(request.getProjectManagerEmployeeId());
+        project.setMemberIds(request.getMemberIds());
         project.setTenantId(tenantId);
         project.setProjectCode(projectCode);
         project.setCreatedAt(LocalDateTime.now());
         project.setStatus(ProjectStatus.PLANNED);
-        project.setStartDate(null);
-        project.setEndDate(null);
         project.setProgressPercentage(0);
         Project savedProject = projectRepository.save(project);
         return convertToDTO(savedProject);
     }
 
-    public ProjectResponseDTO updateProject(String projectCode, Project newProject){
+    public ProjectResponseDTO updateProject(String projectCode, UpdateProjectRequest newProject){
 
         securityUtil.validateActiveUser();
         Project oldProject = findByProjectCode(projectCode);

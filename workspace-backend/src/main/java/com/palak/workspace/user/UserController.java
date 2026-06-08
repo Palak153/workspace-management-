@@ -1,5 +1,8 @@
 package com.palak.workspace.user;
 
+import com.palak.workspace.user.UserDTO.CreateUserRequest;
+import com.palak.workspace.user.UserDTO.UpdateUserRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,7 +21,7 @@ public class UserController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
     )
-    public ResponseEntity<?> createUser(@RequestBody User user){
+    public ResponseEntity<?> createUser(@RequestBody @Valid CreateUserRequest user){
         return new ResponseEntity<>(userService.createUser(user), HttpStatus.CREATED);
     }
 
@@ -42,7 +45,7 @@ public class UserController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> updateUser(@PathVariable String empId, @RequestBody User newUser){
+    public ResponseEntity<?> updateUser(@PathVariable String empId, @Valid @RequestBody UpdateUserRequest newUser){
         return new ResponseEntity<>(userService.updateUser(empId,newUser), HttpStatus.OK);
     }
 

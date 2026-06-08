@@ -1,5 +1,6 @@
-package com.palak.workspace.user;
+package com.palak.workspace.user.UserDTO;
 
+import com.palak.workspace.user.UserRole;
 import lombok.Data;
 
 @Data

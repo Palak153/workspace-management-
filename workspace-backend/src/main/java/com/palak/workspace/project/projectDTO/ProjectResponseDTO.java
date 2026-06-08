@@ -1,5 +1,6 @@
-package com.palak.workspace.project;
+package com.palak.workspace.project.projectDTO;
 
+import com.palak.workspace.project.ProjectStatus;
 import lombok.Data;
 
 import java.time.LocalDate;

@@ -25,7 +25,6 @@ public class User {
     private String firstName;
     private String lastName;
 
-    @Email(message = "enter valid email")
     @Indexed(unique = true)
     private String email;
 

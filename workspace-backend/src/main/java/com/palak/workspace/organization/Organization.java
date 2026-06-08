@@ -25,7 +25,6 @@ public class Organization {
     @Indexed(unique = true)
     private String organizationCode;
 
-    @Email(message = "enter valid email")
     private String email;
 
     private String phone;

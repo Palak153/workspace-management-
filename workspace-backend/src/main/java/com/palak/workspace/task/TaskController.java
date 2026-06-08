@@ -1,5 +1,7 @@
 package com.palak.workspace.task;
 
+import com.palak.workspace.task.taskDTO.CreateTaskRequest;
+import com.palak.workspace.task.taskDTO.UpdateTaskRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,7 +24,7 @@ public class TaskController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> createTask(@RequestBody Task task){
+    public ResponseEntity<?> createTask(@RequestBody CreateTaskRequest task){
         return new ResponseEntity<>(taskService.createTask(task), HttpStatus.CREATED);
     }
 
@@ -82,7 +84,7 @@ public class TaskController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> updateTask(@PathVariable String taskCode, @RequestBody Task newTask){
+    public ResponseEntity<?> updateTask(@PathVariable String taskCode, @RequestBody UpdateTaskRequest newTask){
         return new ResponseEntity<>(taskService.updateTask(taskCode,newTask), HttpStatus.OK);
     }
 

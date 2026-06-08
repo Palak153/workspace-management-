@@ -1,5 +1,6 @@
-package com.palak.workspace.organization;
+package com.palak.workspace.organization.orgDTO;
 
+import com.palak.workspace.organization.OrganizationStatus;
 import lombok.Data;
 
 @Data

@@ -1,12 +1,14 @@
 package com.palak.workspace.user;
 
-import com.palak.workspace.exception.AccessDeniedException;
 import com.palak.workspace.exception.ResourceNotFoundException;
 import com.palak.workspace.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationStatus;
 import com.palak.workspace.security.SecurityUtil;
+import com.palak.workspace.user.UserDTO.CreateUserRequest;
+import com.palak.workspace.user.UserDTO.UpdateUserRequest;
+import com.palak.workspace.user.UserDTO.UserResponseDTO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -52,34 +54,42 @@ public class UserService {
     }
 
 
-    public UserResponseDTO createUser(User user){
+    public UserResponseDTO createUser(CreateUserRequest request){
 
         securityUtil.validateActiveUser();
 
         Organization organization = organizationRepository
-                .findByOrganizationCode(user.getOrganizationCode())
+                .findByOrganizationCode(request.getOrganizationCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
         securityUtil.validateTenantAccess(organization.getTenantId());
 
-        validateUserCreationRole(securityUtil.getCurrentUserRole(), user.getRole());
+        validateUserCreationRole(securityUtil.getCurrentUserRole(), request.getRole());
 
-        if(userRepository.findByEmail(user.getEmail()).isPresent()){
+        if(userRepository.findByEmail(request.getEmail()).isPresent()){
             throw new ValidationException("Email already exists");
         }
 
-        if(userRepository.findByEmployeeId(user.getEmployeeId()).isPresent()){
+        if(userRepository.findByEmployeeId(request.getEmployeeId()).isPresent()){
             throw new ValidationException("Employee ID already exists");
         }
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
             throw new ValidationException("Cannot create user in inactive organization");
         }
+        User user = new User();
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(request.getRole());
+        user.setDesignation(request.getDesignation());
+        user.setEmployeeId(request.getEmployeeId());
 
+        user.setOrganizationCode(request.getOrganizationCode());
         user.setTenantId(organization.getTenantId());
         user.setCreatedAt(LocalDateTime.now());
         user.setIsActive(true);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         User savedUser = userRepository.save(user);
         return convertToDTO(savedUser);
@@ -107,7 +117,7 @@ public class UserService {
         return convertToDTO(user);
     }
 
-    public UserResponseDTO updateUser(String empId, User user){
+    public UserResponseDTO updateUser(String empId, UpdateUserRequest user){
         securityUtil.validateActiveUser();
         User oldUser = findByEmployeeId(empId);
         securityUtil.validateTenantAccess(oldUser.getTenantId());

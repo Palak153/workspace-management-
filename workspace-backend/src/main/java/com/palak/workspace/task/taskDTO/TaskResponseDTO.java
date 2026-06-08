@@ -1,5 +1,7 @@
-package com.palak.workspace.task;
+package com.palak.workspace.task.taskDTO;
 
+import com.palak.workspace.task.TaskPriority;
+import com.palak.workspace.task.TaskStatus;
 import lombok.Data;
 
 import java.time.LocalDate;

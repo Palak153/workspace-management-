@@ -1,8 +1,10 @@
 package com.palak.workspace.organization;
 
-import com.palak.workspace.exception.AccessDeniedException;
 import com.palak.workspace.exception.ResourceNotFoundException;
 import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.organization.orgDTO.CreateOrganizationRequest;
+import com.palak.workspace.organization.orgDTO.OrganizationResponseDTO;
+import com.palak.workspace.organization.orgDTO.UpdateOrganizationRequest;
 import com.palak.workspace.security.SecurityUtil;
 import org.springframework.stereotype.Service;
 
@@ -23,11 +25,19 @@ public class OrganizationService {
         this.securityUtil = securityUtil;
     }
 
-    public OrganizationResponseDTO saveOrganization(Organization organization) {
+    public OrganizationResponseDTO saveOrganization(CreateOrganizationRequest request) {
 
-        if (organizationRepository.findByOrganizationCode(organization.getOrganizationCode()).isPresent()) {
+        if (organizationRepository.findByOrganizationCode(request.getOrganizationCode()).isPresent()) {
             throw new ValidationException("Organization code already exists");
         }
+
+        Organization organization = new Organization();
+        organization.setOrganizationName(request.getOrganizationName());
+        organization.setOrganizationCode(request.getOrganizationCode());
+        organization.setEmail(request.getEmail());
+        organization.setPhone(request.getPhone());
+        organization.setAddress(request.getAddress());
+
         organization.setCreatedAt(LocalDateTime.now());
         organization.setStatus(OrganizationStatus.ACTIVE);
         String tenantId = "ORG_" + UUID.randomUUID()
@@ -39,7 +49,7 @@ public class OrganizationService {
         return convertToDTO(savedOrganization);
     }
 
-    public OrganizationResponseDTO updateOrganization(String organizationCode, Organization newOrganization){
+    public OrganizationResponseDTO updateOrganization(String organizationCode, UpdateOrganizationRequest newOrganization){
 
         securityUtil.validateActiveUser();
         Organization oldOrganization = findOrganizationByCode(organizationCode);

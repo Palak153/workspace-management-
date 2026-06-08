@@ -1,5 +1,7 @@
 package com.palak.workspace.project;
 
+import com.palak.workspace.project.projectDTO.CreateProjectRequest;
+import com.palak.workspace.project.projectDTO.UpdateProjectRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,7 +23,7 @@ public class ProjectController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> createProject(@RequestBody Project project){
+    public ResponseEntity<?> createProject(@RequestBody CreateProjectRequest project){
         return new ResponseEntity<>(projectService.createProject(project), HttpStatus.CREATED);
     }
 
@@ -59,7 +61,7 @@ public class ProjectController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
     )
-    public ResponseEntity<?> updateProject(@PathVariable String projectCode, @RequestBody Project newProject){
+    public ResponseEntity<?> updateProject(@PathVariable String projectCode, @RequestBody UpdateProjectRequest newProject){
         return new ResponseEntity<>(projectService.updateProject(projectCode, newProject), HttpStatus.OK);
     }
 
