@@ -220,11 +220,7 @@ public class TaskService {
 
     public List<TaskResponseDTO> getTasksByStatus(TaskStatus status){
         securityUtil.validateActiveUser();
-        String tenantId = securityUtil.getCurrentTenantId();
-
-        List<Task> tasks = taskRepository.findByTenantId(tenantId)
-                .stream().filter(task -> task.getStatus() == status).toList();
-
+        List<Task> tasks = taskRepository.findByStatus(status);
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
@@ -232,11 +228,7 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByPriority(TaskPriority priority){
 
         securityUtil.validateActiveUser();
-
-        String tenantId = securityUtil.getCurrentTenantId();
-
-        List<Task> tasks = taskRepository.findByTenantId(tenantId).stream()
-                .filter(task -> task.getPriority() == priority).toList();
+        List<Task> tasks = taskRepository.findByPriority(priority);
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
@@ -244,14 +236,7 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByDueDate(LocalDate dueDate){
 
         securityUtil.validateActiveUser();
-        String tenantId = securityUtil.getCurrentTenantId();
-        List<Task> tasks = taskRepository
-                .findByTenantId(tenantId)
-                .stream()
-                .filter(task ->
-                        dueDate.equals(task.getDueDate()))
-                .toList();
-
+        List<Task> tasks = taskRepository.findByDueDate(dueDate);
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
@@ -315,6 +300,10 @@ public class TaskService {
 
         // Status handling
         if(newTask.getStatus() != null ){
+
+            if(oldTask.getStatus() == TaskStatus.TODO && newTask.getStatus() == TaskStatus.DONE){
+                throw new ValidationException("Task must be started before completion");
+            }
 
             if(newTask.getStatus() == TaskStatus.IN_PROGRESS && oldTask.getStartedAt() == null){
                 oldTask.setStartedAt(LocalDateTime.now());

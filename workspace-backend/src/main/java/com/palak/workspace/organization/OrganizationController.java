@@ -2,6 +2,7 @@ package com.palak.workspace.organization;
 
 import com.palak.workspace.organization.orgDTO.CreateOrganizationRequest;
 import com.palak.workspace.organization.orgDTO.UpdateOrganizationRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,7 +22,7 @@ public class OrganizationController {
 
     @PostMapping("/create-organization")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<?> createOrganization(@RequestBody CreateOrganizationRequest newOrganization){
+    public ResponseEntity<?> createOrganization(@Valid @RequestBody CreateOrganizationRequest newOrganization){
         return new ResponseEntity<>(organizationService.saveOrganization(newOrganization), HttpStatus.CREATED);
     }
 
@@ -48,7 +49,7 @@ public class OrganizationController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
     )
-    public ResponseEntity<?> updateOrganization(@PathVariable String orgCode, @RequestBody UpdateOrganizationRequest newOrganization){
+    public ResponseEntity<?> updateOrganization(@PathVariable String orgCode, @Valid @RequestBody UpdateOrganizationRequest newOrganization){
         return new ResponseEntity<>(organizationService.updateOrganization(orgCode, newOrganization), HttpStatus.OK);
     }
 

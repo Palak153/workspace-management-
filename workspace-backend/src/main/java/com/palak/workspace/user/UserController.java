@@ -21,7 +21,7 @@ public class UserController {
     @PreAuthorize(
             "hasAnyRole('SUPER_ADMIN','ORG_ADMIN')"
     )
-    public ResponseEntity<?> createUser(@RequestBody @Valid CreateUserRequest user){
+    public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserRequest user){
         return new ResponseEntity<>(userService.createUser(user), HttpStatus.CREATED);
     }
 

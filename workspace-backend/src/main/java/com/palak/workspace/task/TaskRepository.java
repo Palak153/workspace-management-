@@ -27,4 +27,6 @@ public interface TaskRepository extends MongoRepository<Task, String> {
     long countByProjectCodeAndStatus(String projectCode, TaskStatus status);
 
     List<Task> findByProjectCodeAndStatus(String projectCode, TaskStatus status);
+
+    List<Task> findByProjectCodeIn(List<String> projectCodes);
 }
