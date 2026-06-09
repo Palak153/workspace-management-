@@ -42,8 +42,11 @@ public class TaskController {
 
     @GetMapping()
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getByTenantId(){
-        return new ResponseEntity<>(taskService.getMyOrganizationTasks(), HttpStatus.OK);
+    public ResponseEntity<?> getTasks(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy, @RequestParam(defaultValue = "desc") String direction) {
+
+        return ResponseEntity.ok(taskService.getTasks(page, size, sortBy, direction));
     }
 
     @GetMapping("/assignee/{employeeId}")

@@ -1,4 +1,4 @@
-package com.palak.workspace.exception;
+package com.palak.workspace.common.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

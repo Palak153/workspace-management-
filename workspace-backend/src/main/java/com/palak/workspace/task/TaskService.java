@@ -1,7 +1,8 @@
 package com.palak.workspace.task;
 
-import com.palak.workspace.exception.ResourceNotFoundException;
-import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.common.DTO.PageResponseDTO;
+import com.palak.workspace.common.exception.ResourceNotFoundException;
+import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectRepository;
 import com.palak.workspace.project.ProjectStatus;
@@ -18,7 +19,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 public class TaskService {
@@ -33,6 +39,63 @@ public class TaskService {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.securityUtil = securityUtil;
+    }
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "createdAt",
+            "updatedAt",
+            "dueDate",
+            "priority",
+            "status",
+            "title"
+    );
+
+    private Pageable buildPageable(int page, int size, String sortBy, String direction) {
+
+        if(page < 0){
+            throw new ValidationException("Page number cannot be negative");
+        }
+
+        if(size < 1 || size > 100){
+            throw new ValidationException("Page size must be between 1 and 100");
+        }
+
+        if(!ALLOWED_SORT_FIELDS.contains(sortBy)){
+            throw new ValidationException("Invalid sort field");
+        }
+
+        Sort sort = direction.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        return PageRequest.of(page, size, sort);
+    }
+
+    public PageResponseDTO<TaskResponseDTO> getTasks(int page, int size, String sortBy, String direction) {
+
+        securityUtil.validateActiveUser();
+        String tenantId = securityUtil.getCurrentTenantId();
+        Pageable pageable = buildPageable(page, size, sortBy, direction);
+        Page<Task> taskPage;
+        if (securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE) {
+            taskPage = taskRepository.findByAssignedToEmployeeId(securityUtil.getCurrentEmployeeId(), pageable);
+        } else {
+            taskPage = taskRepository.findByTenantId(tenantId, pageable);
+        }
+
+        PageResponseDTO<TaskResponseDTO> response = new PageResponseDTO<>();
+
+        response.setContent(convertToDTOList(taskPage.getContent()));
+
+        response.setPage(taskPage.getNumber());
+
+        response.setSize(taskPage.getSize());
+
+        response.setTotalElements(taskPage.getTotalElements());
+
+        response.setTotalPages(taskPage.getTotalPages());
+
+        response.setLast(taskPage.isLast());
+
+        return response;
     }
 
     public TaskResponseDTO convertToDTO(Task task){

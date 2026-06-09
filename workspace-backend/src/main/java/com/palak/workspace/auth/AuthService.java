@@ -3,7 +3,7 @@ package com.palak.workspace.auth;
 import com.palak.workspace.auth.dto.LoginRequestDTO;
 import com.palak.workspace.auth.dto.LoginResponseDTO;
 import com.palak.workspace.auth.dto.ProfileResponseDTO;
-import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationService;
 import com.palak.workspace.organization.OrganizationStatus;

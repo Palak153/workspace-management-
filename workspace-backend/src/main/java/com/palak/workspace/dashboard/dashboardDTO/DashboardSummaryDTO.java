@@ -1,4 +1,4 @@
-package com.palak.workspace.dashboard;
+package com.palak.workspace.dashboard.dashboardDTO;
 
 import lombok.Data;
 

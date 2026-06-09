@@ -1,7 +1,7 @@
 package com.palak.workspace.project;
 
-import com.palak.workspace.exception.ResourceNotFoundException;
-import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.common.exception.ResourceNotFoundException;
+import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationRepository;
 import com.palak.workspace.organization.OrganizationStatus;

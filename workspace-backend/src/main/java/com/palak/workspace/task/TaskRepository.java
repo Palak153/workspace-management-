@@ -1,5 +1,7 @@
 package com.palak.workspace.task;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.LocalDate;
@@ -29,4 +31,7 @@ public interface TaskRepository extends MongoRepository<Task, String> {
     List<Task> findByProjectCodeAndStatus(String projectCode, TaskStatus status);
 
     List<Task> findByProjectCodeIn(List<String> projectCodes);
+
+    Page<Task> findByTenantId(String tenantId, Pageable pageable);
+    Page<Task> findByAssignedToEmployeeId(String employeeId, Pageable pageable);
 }

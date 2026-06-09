@@ -1,8 +1,8 @@
 package com.palak.workspace.security;
 
 import com.palak.workspace.auth.UserPrincipal;
-import com.palak.workspace.exception.AccessDeniedException;
-import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.common.exception.AccessDeniedException;
+import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.user.UserRole;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

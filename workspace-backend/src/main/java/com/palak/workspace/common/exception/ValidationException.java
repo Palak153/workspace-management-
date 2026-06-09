@@ -1,4 +1,4 @@
-package com.palak.workspace.exception;
+package com.palak.workspace.common.exception;
 
 public class ValidationException extends RuntimeException {
     public ValidationException(String message) {

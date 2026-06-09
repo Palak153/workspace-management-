@@ -1,5 +1,7 @@
 package com.palak.workspace.dashboard;
 
+import com.palak.workspace.dashboard.dashboardDTO.DashboardSummaryDTO;
+import com.palak.workspace.dashboard.dashboardDTO.ProjectProgressDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;

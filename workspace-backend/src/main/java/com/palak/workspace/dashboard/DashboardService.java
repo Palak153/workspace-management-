@@ -1,6 +1,8 @@
 package com.palak.workspace.dashboard;
 
-import com.palak.workspace.exception.ValidationException;
+import com.palak.workspace.dashboard.dashboardDTO.DashboardSummaryDTO;
+import com.palak.workspace.dashboard.dashboardDTO.ProjectProgressDTO;
+import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.organization.OrganizationService;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectRepository;
