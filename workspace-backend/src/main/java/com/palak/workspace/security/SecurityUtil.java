@@ -57,8 +57,7 @@ public class SecurityUtil {
     }
 
     public void validateActiveUser(){
-        if(!Boolean.TRUE.equals(
-                getPrincipal().getIsActive())){
+        if(!Boolean.TRUE.equals(getPrincipal().getIsActive())){
             throw new ValidationException("Inactive user");
         }
     }

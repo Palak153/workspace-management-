@@ -42,18 +42,14 @@ public class UserController {
     }
 
     @PutMapping("/employeeId/{empId}")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')")
     public ResponseEntity<?> updateUser(@PathVariable String empId, @Valid @RequestBody UpdateUserRequest newUser){
         return new ResponseEntity<>(userService.updateUser(empId,newUser), HttpStatus.OK);
     }
 
 
     @GetMapping("/my-organization-users")
-    @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
-    )
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER')")
     public ResponseEntity<?> allOrganizationUsers(){
         return new ResponseEntity<>(userService.getMyOrganizationUsers(), HttpStatus.OK);
     }
@@ -72,6 +68,12 @@ public class UserController {
     )
     public ResponseEntity<?> activateUser(@PathVariable String empId){
         return new ResponseEntity<>(userService.activateUser(empId), HttpStatus.OK);
+    }
+
+    @GetMapping("/all-users")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<?> allPlatformUsers(){
+        return new ResponseEntity<>(userService.getAllUsers(), HttpStatus.OK);
     }
 }
 

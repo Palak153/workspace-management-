@@ -2,7 +2,9 @@ package com.palak.workspace.common.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -90,6 +92,33 @@ public class GlobalExceptionHandler {
                         HttpStatus.UNAUTHORIZED.value(),
                         "Invalid email or password"
                 ));
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleAuthorizationDenied(
+            AuthorizationDeniedException ex) {
+
+        return new ResponseEntity<>(
+                new ErrorResponseDTO(
+                        LocalDateTime.now(),
+                        HttpStatus.FORBIDDEN.value(),
+                        "Access Denied"
+                ),
+                HttpStatus.FORBIDDEN
+        );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDTO> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex) {
+
+        return ResponseEntity.badRequest().body(
+                new ErrorResponseDTO(
+                        LocalDateTime.now(),
+                        400,
+                        ex.getMostSpecificCause().getMessage()
+                )
+        );
     }
 
 }

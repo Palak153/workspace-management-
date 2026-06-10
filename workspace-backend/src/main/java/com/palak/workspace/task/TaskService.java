@@ -75,7 +75,7 @@ public class TaskService {
         String tenantId = securityUtil.getCurrentTenantId();
         Pageable pageable = buildPageable(page, size, sortBy, direction);
         Page<Task> taskPage;
-        if (securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE) {
+        if (securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE || securityUtil.getCurrentUserRole() == UserRole.MANAGER ) {
             taskPage = taskRepository.findByAssignedToEmployeeId(securityUtil.getCurrentEmployeeId(), pageable);
         } else {
             taskPage = taskRepository.findByTenantId(tenantId, pageable);
@@ -127,6 +127,21 @@ public class TaskService {
             tasks = tasks.stream().filter(task ->
                     task.getAssignedToEmployeeId()
                             .equals(securityUtil.getCurrentEmployeeId())).toList();
+        }
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER){
+
+            List<Project> managedProjects = projectRepository.findByProjectManagerEmployeeId(
+                    securityUtil.getCurrentEmployeeId());
+
+            List<String> projectCodes =
+                    managedProjects.stream()
+                            .map(Project::getProjectCode)
+                            .toList();
+
+            tasks = tasks.stream()
+                    .filter(task ->
+                            projectCodes.contains(task.getProjectCode()))
+                    .toList();
         }
         return tasks;
     }
@@ -250,6 +265,14 @@ public class TaskService {
                 throw new ValidationException("Employees can only view their own tasks");
             }
         }
+        Project project = findProjectByCode(task.getProjectCode());
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER){
+            if(!project.getProjectManagerEmployeeId()
+                    .equals(securityUtil.getCurrentEmployeeId())){
+                throw new ValidationException(
+                        "Managers can only access tasks from projects they manage");
+            }
+        }
         return convertToDTO(task);
     }
 
@@ -278,12 +301,17 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         securityUtil.validateTenantAccess(assignee.getTenantId());
         List<Task> tasks = taskRepository.findByAssignedToEmployeeId(employeeId);
+        tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
 
     public List<TaskResponseDTO> getTasksByStatus(TaskStatus status){
         securityUtil.validateActiveUser();
-        List<Task> tasks = taskRepository.findByStatus(status);
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<Task> tasks = taskRepository.findByTenantId(tenantId)
+                .stream()
+                .filter(task -> task.getStatus() == status)
+                .toList();
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
@@ -291,7 +319,11 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByPriority(TaskPriority priority){
 
         securityUtil.validateActiveUser();
-        List<Task> tasks = taskRepository.findByPriority(priority);
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<Task> tasks = taskRepository.findByTenantId(tenantId)
+                .stream()
+                .filter(task -> task.getPriority() == priority)
+                .toList();
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }
@@ -299,7 +331,12 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByDueDate(LocalDate dueDate){
 
         securityUtil.validateActiveUser();
-        List<Task> tasks = taskRepository.findByDueDate(dueDate);
+        String tenantId = securityUtil.getCurrentTenantId();
+        List<Task> tasks = taskRepository.findByTenantId(tenantId)
+                .stream()
+                .filter(task -> task.getDueDate() != null
+                        && task.getDueDate().equals(dueDate))
+                .toList();
         tasks = filterTasksForCurrentUser(tasks);
         return convertToDTOList(tasks);
     }

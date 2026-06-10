@@ -22,26 +22,26 @@ public class TaskController {
 
     @PostMapping("/create-task")
     @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+            "hasAnyRole('ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> createTask(@RequestBody CreateTaskRequest task){
         return new ResponseEntity<>(taskService.createTask(task), HttpStatus.CREATED);
     }
 
     @GetMapping("/task-code/{taskCode}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getByTaskCode(@PathVariable String taskCode){
         return new ResponseEntity<>(taskService.getTaskByCode(taskCode), HttpStatus.OK);
     }
 
     @GetMapping("/project/{projectCode}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getByProjectCode(@PathVariable String projectCode){
         return new ResponseEntity<>(taskService.getTasksByProject(projectCode), HttpStatus.OK);
     }
 
     @GetMapping()
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getTasks(
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy, @RequestParam(defaultValue = "desc") String direction) {
@@ -51,33 +51,33 @@ public class TaskController {
 
     @GetMapping("/assignee/{employeeId}")
     @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+            "hasAnyRole('ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getByAssignee(@PathVariable String employeeId){
         return new ResponseEntity<>(taskService.getTasksByAssignee(employeeId), HttpStatus.OK);
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getByStatus(@PathVariable TaskStatus status){
         return new ResponseEntity<>(taskService.getTasksByStatus(status), HttpStatus.OK);
     }
 
     @GetMapping("/priority/{priority}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getByPriority(@PathVariable TaskPriority priority){
         return new ResponseEntity<>(taskService.getTasksByPriority(priority), HttpStatus.OK);
     }
 
     @GetMapping("/due-date/{dueDate}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER','EMPLOYEE')")
     public ResponseEntity<?> getByDueDate(@PathVariable LocalDate dueDate){
         return new ResponseEntity<>(taskService.getTasksByDueDate(dueDate), HttpStatus.OK);
     }
 
     @GetMapping("/project/{projectCode}/status/{status}")
     @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+            "hasAnyRole('ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> getByProjectAndStatus(@PathVariable String projectCode, @PathVariable TaskStatus status){
         return new ResponseEntity<>(taskService.getTasksByProjectAndStatus(projectCode, status), HttpStatus.OK);
@@ -85,7 +85,7 @@ public class TaskController {
 
     @PutMapping("/{taskCode}")
     @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+            "hasAnyRole('ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> updateTask(@PathVariable String taskCode, @RequestBody UpdateTaskRequest newTask){
         return new ResponseEntity<>(taskService.updateTask(taskCode,newTask), HttpStatus.OK);
@@ -93,7 +93,7 @@ public class TaskController {
 
     @DeleteMapping("/{taskCode}")
     @PreAuthorize(
-            "hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')"
+            "hasAnyRole('ORG_ADMIN','MANAGER')"
     )
     public ResponseEntity<?> deleteTask(@PathVariable String taskCode){
         taskService.deleteTask(taskCode);

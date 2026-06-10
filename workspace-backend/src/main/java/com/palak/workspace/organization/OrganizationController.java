@@ -32,9 +32,8 @@ public class OrganizationController {
         return new ResponseEntity<>(organizationService.getAllOrganization(),HttpStatus.OK);
     }
 
-
     @GetMapping("/org-code/{orgCode}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ORG_ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN','MANAGER')")
     public ResponseEntity<?> getByOrganizationCode(@PathVariable String orgCode){
         return new ResponseEntity<>(organizationService.getOrganizationByCode(orgCode), HttpStatus.OK);
     }
@@ -52,5 +51,4 @@ public class OrganizationController {
     public ResponseEntity<?> updateOrganization(@PathVariable String orgCode, @Valid @RequestBody UpdateOrganizationRequest newOrganization){
         return new ResponseEntity<>(organizationService.updateOrganization(orgCode, newOrganization), HttpStatus.OK);
     }
-
 }

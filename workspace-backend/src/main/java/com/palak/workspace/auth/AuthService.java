@@ -8,6 +8,7 @@ import com.palak.workspace.organization.Organization;
 import com.palak.workspace.organization.OrganizationService;
 import com.palak.workspace.organization.OrganizationStatus;
 import com.palak.workspace.user.User;
+import com.palak.workspace.user.UserRole;
 import com.palak.workspace.user.UserService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,6 +36,17 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
+    private LoginResponseDTO buildSuperAdminResponse(User user, String token){
+
+        LoginResponseDTO response = new LoginResponseDTO();
+        response.setToken(token);
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setRole(user.getRole());
+        return response;
+    }
+
     public LoginResponseDTO login(LoginRequestDTO request){
 
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
@@ -46,6 +58,18 @@ public class AuthService {
             throw new ValidationException("User account is inactive");
         }
 
+        String token = jwtService.generateToken(user);
+
+        // Platform Super Admin
+        if(user.getRole() == UserRole.SUPER_ADMIN){
+
+            user.setLastLogin(LocalDateTime.now());
+            userService.saveUser(user);
+
+            return buildSuperAdminResponse(user, token);
+        }
+
+
         Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
@@ -54,9 +78,6 @@ public class AuthService {
 
         user.setLastLogin(LocalDateTime.now());
         userService.saveUser(user);
-
-        String token = jwtService.generateToken(user);
-
         return buildLoginResponse(user, organization, token);
     }
 
@@ -77,8 +98,25 @@ public class AuthService {
 
     public ProfileResponseDTO getProfile(String email){
         User user = userService.findByEmail(email);
+        if(user.getRole() == UserRole.SUPER_ADMIN){
+            return buildSuperAdminProfile(user);
+        }
+
         Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
         return buildProfileResponse(user, organization);
+    }
+
+    private ProfileResponseDTO buildSuperAdminProfile(User user){
+
+        ProfileResponseDTO response = new ProfileResponseDTO();
+
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setRole(user.getRole());
+        response.setIsActive(user.getIsActive());
+
+        return response;
     }
 
     private ProfileResponseDTO buildProfileResponse(User user, Organization organization){

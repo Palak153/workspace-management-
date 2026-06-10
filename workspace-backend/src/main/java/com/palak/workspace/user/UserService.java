@@ -1,5 +1,6 @@
 package com.palak.workspace.user;
 
+import com.palak.workspace.common.exception.AccessDeniedException;
 import com.palak.workspace.common.exception.ResourceNotFoundException;
 import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
@@ -33,9 +34,6 @@ public class UserService {
 
     private void validateUserCreationRole(UserRole creatorRole, UserRole targetRole){
         if(creatorRole == UserRole.ORG_ADMIN){
-            if(targetRole == UserRole.SUPER_ADMIN){
-                throw new ValidationException("ORG_ADMIN cannot create SUPER_ADMIN");
-            }
             if(targetRole == UserRole.ORG_ADMIN){
                 throw new ValidationException("ORG_ADMIN cannot create another ORG_ADMIN");
             }
@@ -44,9 +42,6 @@ public class UserService {
 
     private void validateUserUpdateRole(UserRole currentRole, UserRole targetRole){
         if(currentRole == UserRole.ORG_ADMIN){
-            if(targetRole == UserRole.SUPER_ADMIN){
-                throw new ValidationException("ORG_ADMIN cannot update role to SUPER_ADMIN");
-            }
             if(targetRole == UserRole.ORG_ADMIN){
                 throw new ValidationException("ORG_ADMIN cannot update role to ORG_ADMIN");
             }
@@ -77,6 +72,11 @@ public class UserService {
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
             throw new ValidationException("Cannot create user in inactive organization");
         }
+
+        if(request.getRole() == UserRole.SUPER_ADMIN){
+            throw new ValidationException("SUPER_ADMIN cannot be created through API");
+        }
+
         User user = new User();
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
@@ -124,9 +124,8 @@ public class UserService {
 
         UserRole currentRole = securityUtil.getCurrentUserRole();
 
-        if(user.getIsActive() != null && !user.getIsActive()
-                && oldUser.getEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
-            throw new ValidationException("You cannot deactivate yourself");
+        if(user.getRole() == UserRole.SUPER_ADMIN){
+            throw new ValidationException("Role cannot be changed to SUPER_ADMIN");
         }
 
         if(user.getRole() != null){
@@ -141,7 +140,14 @@ public class UserService {
             throw new ValidationException("Manager can only modify employees");
         }
 
-        boolean canUpdateActiveStatus = currentRole == UserRole.SUPER_ADMIN || currentRole == UserRole.ORG_ADMIN;
+        String currentEmpId = securityUtil.getCurrentEmployeeId();
+
+        if(currentRole == UserRole.ORG_ADMIN && currentEmpId.equals(oldUser.getEmployeeId())
+                && user.getRole() != null) {
+
+            throw new ValidationException(
+                    "ORG_ADMIN cannot update his/her own role");
+        }
 
         oldUser.setFirstName(
                 user.getFirstName() != null && !user.getFirstName().isBlank() ?
@@ -166,10 +172,6 @@ public class UserService {
 
         if(user.getRole() != null){
             oldUser.setRole(user.getRole());
-        }
-
-        if(canUpdateActiveStatus && user.getIsActive() != null){
-            oldUser.setIsActive(user.getIsActive());
         }
 
         oldUser.setUpdatedAt(LocalDateTime.now());
@@ -243,6 +245,13 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         User updatedUser = userRepository.save(user);
         return convertToDTO(updatedUser);
+    }
+
+    public List<UserResponseDTO> getAllUsers(){
+        if(!securityUtil.isSuperAdmin()){
+            throw new AccessDeniedException("Only SUPER_ADMIN can view all users");
+        }
+        return convertToDTOList(userRepository.findAll());
     }
 
     public UserResponseDTO convertToDTO(User user) {

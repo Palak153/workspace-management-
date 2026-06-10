@@ -18,5 +18,4 @@ public class UpdateUserRequest {
 
     private UserRole role;
 
-    private Boolean isActive;
 }

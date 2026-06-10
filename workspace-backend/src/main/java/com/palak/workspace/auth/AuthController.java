@@ -26,7 +26,8 @@ public class AuthController {
     @GetMapping("/profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getProfile(Authentication authentication) {
-        return ResponseEntity.ok(authService.getProfile(authentication.getName()));
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(authService.getProfile(principal.getEmail()));
     }
 
 }

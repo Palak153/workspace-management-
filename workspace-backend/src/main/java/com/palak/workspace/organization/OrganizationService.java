@@ -6,6 +6,7 @@ import com.palak.workspace.organization.orgDTO.CreateOrganizationRequest;
 import com.palak.workspace.organization.orgDTO.OrganizationResponseDTO;
 import com.palak.workspace.organization.orgDTO.UpdateOrganizationRequest;
 import com.palak.workspace.security.SecurityUtil;
+import com.palak.workspace.user.UserRole;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -109,6 +110,10 @@ public class OrganizationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
     }
     public OrganizationResponseDTO getMyOrganization() {
+        if(securityUtil.isSuperAdmin()){
+            throw new ValidationException(
+                    "SUPER_ADMIN does not belong to any organization");
+        }
         String tenantId = securityUtil.getCurrentTenantId();
         Organization organization = findOrganizationByTenantID(tenantId);
         return convertToDTO(organization);

@@ -1,5 +1,6 @@
 package com.palak.workspace.project;
 
+import com.palak.workspace.common.exception.AccessDeniedException;
 import com.palak.workspace.common.exception.ResourceNotFoundException;
 import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.organization.Organization;
@@ -56,6 +57,14 @@ public class ProjectService {
         return responseList;
     }
 
+    private void validateProjectOwnership(Project project){
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER){
+            if(!project.getProjectManagerEmployeeId().equals(securityUtil.getCurrentEmployeeId())){
+                throw new AccessDeniedException("You can only access your own projects");
+            }
+        }
+    }
+
     private void validateActiveOrganization(String tenantId){
 
         Organization organization = organizationRepository
@@ -79,8 +88,8 @@ public class ProjectService {
             throw new ValidationException("Project manager is inactive");
         }
 
-        if (manager.getRole() != UserRole.MANAGER) {
-            throw new ValidationException("Selected user is not a manager");
+        if (manager.getRole() != UserRole.MANAGER && manager.getRole() != UserRole.ORG_ADMIN) {
+            throw new ValidationException("Selected user cannot be a manager");
         }
 
         if (!manager.getTenantId().equals(tenantId)) {
@@ -122,6 +131,10 @@ public class ProjectService {
         // Validate members
         validateProjectMembers(request.getMemberIds(),tenantId);
 
+        if(request.getMemberIds() == null || !request.getMemberIds().contains(request.getProjectManagerEmployeeId())){
+            throw new ValidationException("Project manager must be part of project members");
+        }
+
         String projectCode = "PROJ_" + UUID.randomUUID()
                 .toString()
                 .substring(0, 6)
@@ -147,6 +160,7 @@ public class ProjectService {
         securityUtil.validateActiveUser();
         Project oldProject = findByProjectCode(projectCode);
         securityUtil.validateTenantAccess(oldProject.getTenantId());
+        validateProjectOwnership(oldProject);
         validateActiveOrganization(oldProject.getTenantId());
 
         if(oldProject.getStatus() == ProjectStatus.COMPLETED){
@@ -198,6 +212,18 @@ public class ProjectService {
                 newProject.getDescription() != null && !newProject.getDescription().isBlank()
                         ? newProject.getDescription() : oldProject.getDescription());
 
+        String managerId = newProject.getProjectManagerEmployeeId() != null
+                        ? newProject.getProjectManagerEmployeeId()
+                        : oldProject.getProjectManagerEmployeeId();
+
+        List<String> members = newProject.getMemberIds() != null
+                        ? newProject.getMemberIds()
+                        : oldProject.getMemberIds();
+
+        if(members == null || !members.contains(managerId)){
+            throw new ValidationException("Project manager must be part of project members");
+        }
+
         oldProject.setUpdatedAt(LocalDateTime.now());
         Project updatedProject = projectRepository.save(oldProject);
         return convertToDTO(updatedProject);
@@ -208,6 +234,7 @@ public class ProjectService {
         securityUtil.validateActiveUser();
         Project project = findByProjectCode(projectCode);
         securityUtil.validateTenantAccess(project.getTenantId());
+        validateProjectOwnership(project);
         validateActiveOrganization(project.getTenantId());
 
         if(project.getStatus() == ProjectStatus.COMPLETED){
@@ -223,8 +250,11 @@ public class ProjectService {
         securityUtil.validateActiveUser();
         User manager = userRepository.findByEmployeeId(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
-        if(manager.getRole() != UserRole.MANAGER){
-            throw new ValidationException("Selected user is not a manager");
+        if(manager.getRole() != UserRole.MANAGER && manager.getRole() != UserRole.ORG_ADMIN){
+            throw new ValidationException("Selected user is not a project manager");
+        }
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER && !employeeId.equals(securityUtil.getCurrentEmployeeId())){
+            throw new AccessDeniedException("You can only view your own projects");
         }
         securityUtil.validateTenantAccess(manager.getTenantId());
         List<Project> projects = projectRepository.findByProjectManagerEmployeeId(employeeId);
@@ -236,6 +266,11 @@ public class ProjectService {
         String tenantId = securityUtil.getCurrentTenantId();
         List<Project> projects = projectRepository.findByTenantId(tenantId)
                 .stream().filter(project -> project.getStatus() == status).toList();
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER){
+            String managerId = securityUtil.getCurrentEmployeeId();
+            projects = projects.stream().filter(project ->
+                    managerId.equals(project.getProjectManagerEmployeeId())).toList();
+        }
         return convertToDTOList(projects);
     }
 
@@ -243,10 +278,15 @@ public class ProjectService {
         securityUtil.validateActiveUser();
         String tenantId = securityUtil.getCurrentTenantId();
         List<Project> projects = projectRepository.findByTenantId(tenantId);
+        if(securityUtil.getCurrentUserRole() == UserRole.MANAGER){
+            String managerId = securityUtil.getCurrentEmployeeId();
+            projects = projects.stream().filter(project ->
+                    managerId.equals(project.getProjectManagerEmployeeId())).toList();
+        }
         if(securityUtil.getCurrentUserRole() == UserRole.EMPLOYEE){
             String employeeId = securityUtil.getCurrentEmployeeId();
             projects = projects.stream().filter(project ->
-                            project.getMemberIds() != null && project.getMemberIds().contains(employeeId)).toList();
+                    project.getMemberIds() != null && project.getMemberIds().contains(employeeId)).toList();
         }
         return convertToDTOList(projects);
     }
@@ -259,6 +299,7 @@ public class ProjectService {
         securityUtil.validateActiveUser();
         Project project = findByProjectCode(projectCode);
         securityUtil.validateTenantAccess(project.getTenantId());
+        validateProjectOwnership(project);
         return convertToDTO(project);
     }
 
