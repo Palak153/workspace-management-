@@ -18,11 +18,7 @@ public interface TaskRepository extends MongoRepository<Task, String> {
 
     List<Task> findByAssignedToEmployeeId(String employeeId);
 
-    List<Task> findByStatus(TaskStatus status);
-
-    List<Task> findByPriority(TaskPriority priority);
-
-    List<Task> findByDueDate(LocalDate dueDate);
+    List<Task> findByDueDateAndStatusNot(LocalDate dueDate, TaskStatus status);
 
     long countByProjectCode(String projectCode);
 
@@ -34,4 +30,6 @@ public interface TaskRepository extends MongoRepository<Task, String> {
 
     Page<Task> findByTenantId(String tenantId, Pageable pageable);
     Page<Task> findByAssignedToEmployeeId(String employeeId, Pageable pageable);
+
+
 }

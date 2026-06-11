@@ -3,6 +3,7 @@ package com.palak.workspace.task;
 import com.palak.workspace.common.DTO.PageResponseDTO;
 import com.palak.workspace.common.exception.ResourceNotFoundException;
 import com.palak.workspace.common.exception.ValidationException;
+import com.palak.workspace.notification.EmailService;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectRepository;
 import com.palak.workspace.project.ProjectStatus;
@@ -33,12 +34,14 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final SecurityUtil securityUtil;
+    private final EmailService emailService;
 
-    public TaskService(TaskRepository taskRepository, ProjectRepository projectRepository, UserRepository userRepository, SecurityUtil securityUtil) {
+    public TaskService(TaskRepository taskRepository, ProjectRepository projectRepository, UserRepository userRepository, SecurityUtil securityUtil, EmailService emailService) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.securityUtil = securityUtil;
+        this.emailService = emailService;
     }
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -246,6 +249,13 @@ public class TaskService {
         task.setStatus(TaskStatus.TODO);
         task.setCreatedAt(LocalDateTime.now());
         Task savedTask = taskRepository.save(task);
+        User assignee = userRepository.findByEmployeeId(
+                savedTask.getAssignedToEmployeeId()).orElseThrow();
+        emailService.sendTaskAssignedEmail(
+                assignee.getEmail(),
+                savedTask.getTitle(),
+                project.getProjectName()
+        );
         updateProjectProgress(savedTask.getProjectCode());
         return convertToDTO(savedTask);
     }
@@ -395,7 +405,28 @@ public class TaskService {
 
         if(newTask.getAssignedToEmployeeId() != null){
             validateTaskAssignee(newTask.getAssignedToEmployeeId(), oldTask.getTenantId(), project);
-            oldTask.setAssignedToEmployeeId(newTask.getAssignedToEmployeeId());
+
+            String previousAssignee = oldTask.getAssignedToEmployeeId();
+
+            if(!previousAssignee.equals(newTask.getAssignedToEmployeeId())){
+
+                User previousUser = userRepository
+                        .findByEmployeeId(previousAssignee)
+                        .orElseThrow();
+
+                User newAssignee = userRepository
+                        .findByEmployeeId(newTask.getAssignedToEmployeeId())
+                        .orElseThrow();
+
+                oldTask.setAssignedToEmployeeId(
+                        newTask.getAssignedToEmployeeId());
+
+                emailService.sendTaskReAssignedEmail(
+                        newAssignee.getEmail(),
+                        oldTask.getTitle(),
+                        project.getProjectName(),
+                        previousUser.getFirstName() + " " + previousUser.getLastName());
+            }
         }
 
         // Status handling
@@ -411,6 +442,14 @@ public class TaskService {
 
             if(newTask.getStatus() == TaskStatus.DONE && oldTask.getCompletedAt() == null){
                 oldTask.setCompletedAt(LocalDateTime.now());
+                User manager = userRepository.findByEmployeeId(
+                        project.getProjectManagerEmployeeId()).orElseThrow();
+
+                emailService.sendTaskCompletedEmail(
+                        manager.getEmail(),
+                        oldTask.getTitle(),
+                        project.getProjectName()
+                );
             }
 
             oldTask.setStatus(newTask.getStatus());
