@@ -14,6 +14,8 @@ import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRepository;
 import com.palak.workspace.user.UserRole;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -162,6 +164,7 @@ public class ProjectService {
         return convertToDTO(savedProject);
     }
 
+    @CacheEvict(value = "projectsByCode", allEntries = true)
     public ProjectResponseDTO updateProject(String projectCode, UpdateProjectRequest newProject){
 
         securityUtil.validateActiveUser();
@@ -241,6 +244,7 @@ public class ProjectService {
         return convertToDTO(updatedProject);
     }
 
+    @CacheEvict(value = "projectsByCode", allEntries = true)
     public ProjectResponseDTO cancelProject(String projectCode){
 
         securityUtil.validateActiveUser();
@@ -312,6 +316,8 @@ public class ProjectService {
         return projectRepository.findByProjectCode(projectCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
+
+    @Cacheable(value = "projectsByCode", key = "#projectCode")
     public ProjectResponseDTO getProjectByCode(String projectCode){
         securityUtil.validateActiveUser();
         Project project = findByProjectCode(projectCode);

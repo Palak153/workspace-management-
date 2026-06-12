@@ -7,6 +7,8 @@ import com.palak.workspace.organization.orgDTO.OrganizationResponseDTO;
 import com.palak.workspace.organization.orgDTO.UpdateOrganizationRequest;
 import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.UserRole;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -50,6 +52,7 @@ public class OrganizationService {
         return convertToDTO(savedOrganization);
     }
 
+    @CacheEvict(value = "organizationsByCode", allEntries = true)
     public OrganizationResponseDTO updateOrganization(String organizationCode, UpdateOrganizationRequest newOrganization){
 
         securityUtil.validateActiveUser();
@@ -99,6 +102,7 @@ public class OrganizationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
     }
 
+    @Cacheable(value = "organizationsByCode", key = "#orgCode")
     public OrganizationResponseDTO getOrganizationByCode(String orgCode){
         Organization organization = findOrganizationByCode(orgCode);
         securityUtil.validateTenantAccess(organization.getTenantId());

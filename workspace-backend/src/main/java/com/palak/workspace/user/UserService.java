@@ -11,6 +11,8 @@ import com.palak.workspace.user.UserDTO.CreateUserRequest;
 import com.palak.workspace.user.UserDTO.UpdateUserRequest;
 import com.palak.workspace.user.UserDTO.UserResponseDTO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -102,28 +104,36 @@ public class UserService {
         return convertToDTO(savedUser);
     }
 
+
     public User findByEmail(String email){
+        log.info("Fetching user from DB: {}", email);
         return userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found"));
     }
+    @Cacheable(value = "usersByEmail", key = "#email")
     public UserResponseDTO getUserByEmail(String email){
         User user = findByEmail(email);
         securityUtil.validateTenantAccess(user.getTenantId());
         return convertToDTO(user);
     }
 
+
     public User findByEmployeeId(String empId){
+        log.info("Fetching user from DB: {}", empId);
         return userRepository.findByEmployeeId(empId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found"));
     }
+
+    @Cacheable(value = "usersByEmployeeId", key = "#empId")
     public UserResponseDTO getUserByEmployeeId(String empId){
         User user = findByEmployeeId(empId);
         securityUtil.validateTenantAccess(user.getTenantId());
         return convertToDTO(user);
     }
 
+    @CacheEvict(value = {"usersByEmail", "usersByEmployeeId"}, allEntries = true)
     public UserResponseDTO updateUser(String empId, UpdateUserRequest user){
         securityUtil.validateActiveUser();
         User oldUser = findByEmployeeId(empId);
@@ -203,6 +213,7 @@ public class UserService {
         return convertToDTOList(users);
     }
 
+    @CacheEvict(value = {"usersByEmail", "usersByEmployeeId"}, allEntries = true)
     public UserResponseDTO deactivateUser(String empId){
         User user = findByEmployeeId(empId);
         if(!user.getIsActive()){
@@ -239,6 +250,7 @@ public class UserService {
         return convertToDTO(updatedUser);
     }
 
+    @CacheEvict(value = {"usersByEmail", "usersByEmployeeId"}, allEntries = true)
     public UserResponseDTO activateUser(String empId){
         User user = findByEmployeeId(empId);
 
