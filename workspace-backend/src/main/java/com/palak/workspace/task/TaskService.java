@@ -14,6 +14,7 @@ import com.palak.workspace.task.taskDTO.UpdateTaskRequest;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRepository;
 import com.palak.workspace.user.UserRole;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 @Service
+@Slf4j
 public class TaskService {
 
     private final TaskRepository taskRepository;
@@ -257,6 +259,11 @@ public class TaskService {
                 project.getProjectName()
         );
         updateProjectProgress(savedTask.getProjectCode());
+        log.info(
+                "Task created: {}",
+                savedTask.getTaskCode()
+        );
+
         return convertToDTO(savedTask);
     }
 
@@ -426,6 +433,13 @@ public class TaskService {
                         oldTask.getTitle(),
                         project.getProjectName(),
                         previousUser.getFirstName() + " " + previousUser.getLastName());
+                log.info(
+                        "Task {} reassigned from {} to {}",
+                        taskCode,
+                        previousAssignee,
+                        newAssignee
+                );
+
             }
         }
 
@@ -458,6 +472,11 @@ public class TaskService {
         oldTask.setUpdatedAt(LocalDateTime.now());
         Task savedTask = taskRepository.save(oldTask);
         updateProjectProgress(savedTask.getProjectCode());
+        log.info(
+                "Task updated: {}",
+                taskCode
+        );
+
         return convertToDTO(savedTask);
     }
 
@@ -477,5 +496,9 @@ public class TaskService {
 
         taskRepository.delete(task);
         updateProjectProgress(projectCode);
+        log.warn(
+                "Task deleted: {}",
+                taskCode
+        );
     }
 }

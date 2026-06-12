@@ -13,6 +13,7 @@ import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRepository;
 import com.palak.workspace.user.UserRole;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
@@ -152,6 +154,11 @@ public class ProjectService {
         project.setStatus(ProjectStatus.PLANNED);
         project.setProgressPercentage(0);
         Project savedProject = projectRepository.save(project);
+        log.info(
+                "Project created: {}",
+                savedProject.getProjectCode()
+        );
+
         return convertToDTO(savedProject);
     }
 
@@ -226,6 +233,11 @@ public class ProjectService {
 
         oldProject.setUpdatedAt(LocalDateTime.now());
         Project updatedProject = projectRepository.save(oldProject);
+        log.info(
+                "Project updated: {}",
+                projectCode
+        );
+
         return convertToDTO(updatedProject);
     }
 
@@ -243,6 +255,11 @@ public class ProjectService {
         project.setStatus(ProjectStatus.CANCELLED);
         project.setUpdatedAt(LocalDateTime.now());
         Project updatedProject = projectRepository.save(project);
+        log.warn(
+                "Project cancelled: {}",
+                projectCode
+        );
+
         return convertToDTO(updatedProject);
     }
 

@@ -10,6 +10,7 @@ import com.palak.workspace.organization.OrganizationStatus;
 import com.palak.workspace.user.User;
 import com.palak.workspace.user.UserRole;
 import com.palak.workspace.user.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 @Service
+@Slf4j
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
@@ -55,6 +57,10 @@ public class AuthService {
         User user = userService.findByEmail(request.getEmail());
 
         if(!user.getIsActive()){
+            log.warn(
+                    "Login denied. Inactive account. employeeId={}",
+                    user.getEmployeeId()
+            );
             throw new ValidationException("User account is inactive");
         }
 
@@ -66,6 +72,11 @@ public class AuthService {
             user.setLastLogin(LocalDateTime.now());
             userService.saveUser(user);
 
+            log.info(
+                    "Login successful. employeeId={}, role={}",
+                    user.getEmployeeId(),
+                    user.getRole()
+            );
             return buildSuperAdminResponse(user, token);
         }
 
@@ -73,13 +84,23 @@ public class AuthService {
         Organization organization = organizationService.findOrganizationByCode(user.getOrganizationCode());
 
         if(organization.getStatus() == OrganizationStatus.INACTIVE){
+            log.warn(
+                    "Login denied. Organization inactive. tenantId={}",
+                    organization.getTenantId()
+            );
             throw new ValidationException("Organization is inactive");
         }
 
         user.setLastLogin(LocalDateTime.now());
         userService.saveUser(user);
+        log.info(
+                "Login successful. employeeId={}, role={}",
+                user.getEmployeeId(),
+                user.getRole()
+        );
         return buildLoginResponse(user, organization, token);
     }
+
 
     private LoginResponseDTO buildLoginResponse(User user, Organization organization, String token){
 

@@ -10,6 +10,7 @@ import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.user.UserDTO.CreateUserRequest;
 import com.palak.workspace.user.UserDTO.UpdateUserRequest;
 import com.palak.workspace.user.UserDTO.UserResponseDTO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -92,6 +94,11 @@ public class UserService {
         user.setIsActive(true);
 
         User savedUser = userRepository.save(user);
+        log.info(
+                "User created. employeeId={}, role={}, tenantId={}",
+                savedUser.getEmployeeId(),
+                savedUser.getRole(),
+                savedUser.getTenantId());
         return convertToDTO(savedUser);
     }
 
@@ -176,6 +183,9 @@ public class UserService {
 
         oldUser.setUpdatedAt(LocalDateTime.now());
         User updatedUser = userRepository.save(oldUser);
+        log.info(
+                "User updated. employeeId={}",
+                updatedUser.getEmployeeId());
         return convertToDTO(updatedUser);
     }
 
@@ -222,6 +232,10 @@ public class UserService {
         user.setIsActive(false);
         user.setUpdatedAt(LocalDateTime.now());
         User updatedUser = userRepository.save(user);
+        log.warn(
+                "User deactivated. employeeId={}, deactivatedBy={}",
+                user.getEmployeeId(),
+                securityUtil.getCurrentEmployeeId());
         return convertToDTO(updatedUser);
     }
 
@@ -244,6 +258,10 @@ public class UserService {
         user.setIsActive(true);
         user.setUpdatedAt(LocalDateTime.now());
         User updatedUser = userRepository.save(user);
+        log.info(
+                "User activated. employeeId={}, activatedBy={}",
+                user.getEmployeeId(),
+                securityUtil.getCurrentEmployeeId());
         return convertToDTO(updatedUser);
     }
 
