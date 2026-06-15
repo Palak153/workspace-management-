@@ -1,5 +1,7 @@
-package com.palak.workspace.ai.AI_DTO;
+package com.palak.workspace.ai;
 
+import com.palak.workspace.ai.AI_DTO.GroqRequestDTO;
+import com.palak.workspace.ai.AI_DTO.GroqResponseDTO;
 import com.palak.workspace.config.GroqConfig;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;

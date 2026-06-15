@@ -3,15 +3,12 @@ package com.palak.workspace.ai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.palak.workspace.ai.AI_DTO.*;
 import com.palak.workspace.common.exception.ValidationException;
-import com.palak.workspace.config.GroqConfig;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectService;
 import com.palak.workspace.task.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.util.List;
