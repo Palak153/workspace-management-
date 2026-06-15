@@ -2,10 +2,13 @@ package com.palak.workspace.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.palak.workspace.ai.AI_DTO.*;
+import com.palak.workspace.common.exception.AccessDeniedException;
 import com.palak.workspace.common.exception.ValidationException;
 import com.palak.workspace.project.Project;
 import com.palak.workspace.project.ProjectService;
+import com.palak.workspace.security.SecurityUtil;
 import com.palak.workspace.task.*;
+import com.palak.workspace.user.UserRole;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -21,16 +24,48 @@ public class AIService {
     private final TaskRepository taskRepository;
     private final ObjectMapper objectMapper;
     private final GroqClient groqClient;
+    private final SecurityUtil securityUtil;
 
     public AIService(ProjectService projectService, TaskRepository taskRepository,
-                     ObjectMapper objectMapper, GroqClient groqClient) {
+                     ObjectMapper objectMapper, GroqClient groqClient, SecurityUtil securityUtil) {
 
         this.projectService = projectService;
         this.taskRepository = taskRepository;
         this.objectMapper = objectMapper;
         this.groqClient = groqClient;
+        this.securityUtil = securityUtil;
     }
 
+
+    private void validateProjectAccess(Project project) {
+
+        UserRole role = securityUtil.getCurrentUserRole();
+
+        if (role == UserRole.SUPER_ADMIN) {
+            return;
+        }
+
+        if (role == UserRole.ORG_ADMIN) {
+            securityUtil.validateTenantAccess(project.getTenantId());
+            return;
+        }
+
+        if (role == UserRole.MANAGER) {
+            securityUtil.validateTenantAccess(project.getTenantId());
+            if (!project.getProjectManagerEmployeeId().equals(securityUtil.getCurrentEmployeeId())) {
+                throw new AccessDeniedException("You do not manage this project");
+            }
+            return;
+        }
+
+        if (role == UserRole.EMPLOYEE) {
+            securityUtil.validateTenantAccess(project.getTenantId());
+            if (project.getMemberIds() == null ||
+                    !project.getMemberIds().contains(securityUtil.getCurrentEmployeeId())) {
+                throw new AccessDeniedException("You are not a member of this project");
+            }
+        }
+    }
 
     private String buildRiskPrompt(Project project, ProjectMetricsDTO metrics) {
 
@@ -100,9 +135,16 @@ public class AIService {
         return calculatedMetrics;
     }
 
-    @Cacheable(value = "projectRiskAnalysis", key = "#projectCode")
-    public ProjectRiskResponseDTO analyzeProjectRisk(String projectCode) {
+    public ProjectRiskResponseDTO analyzeProjectRisk(String projectCode){
+
         Project project = projectService.findByProjectCode(projectCode);
+        validateProjectAccess(project);
+        return getCachedRiskAnalysis(project);
+    }
+
+    @Cacheable(value = "projectRiskAnalysis", key = "#projectCode")
+    public ProjectRiskResponseDTO getCachedRiskAnalysis(Project project) {
+        String projectCode = project.getProjectCode();
         List<Task> tasks = taskRepository.findByProjectCode(projectCode);
 
         ProjectMetricsDTO metrics = calculateMetrics(tasks);
